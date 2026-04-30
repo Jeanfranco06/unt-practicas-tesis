@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param, UseGuards } from '@nestjs/common';
 import { InternshipsService } from './internships.service';
 import { CreateInternshipOfferDto, UpdateInternshipOfferDto } from './dto/internship-offer.dto';
 import { CreateApplicationDto, ReviewApplicationDto } from './dto/application.dto';
@@ -32,10 +32,22 @@ export class InternshipsController {
     return this.service.createOffer(dto);
   }
 
+  @Patch('offers/:id')
+  @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA)
+  updateOffer(@Param('id') id: string, @Body() dto: UpdateInternshipOfferDto) {
+    return this.service.updateOffer(+id, dto);
+  }
+
   @Patch('offers/:id/publish')
   @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA)
   publishOffer(@Param('id') id: string) {
     return this.service.publishOffer(+id);
+  }
+
+  @Delete('offers/:id')
+  @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA)
+  deleteOffer(@Param('id') id: string) {
+    return this.service.deleteOffer(+id);
   }
 
   // Postulaciones

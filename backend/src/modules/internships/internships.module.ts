@@ -11,6 +11,8 @@ import { InternshipsController } from './internships.controller';
 import { CompaniesModule } from '../companies/companies.module';
 import { StudentsModule } from '../students/students.module';
 import { UsersModule } from '../users/users.module';
+import { AgreementsModule } from '../agreements/agreements.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { UsersModule } from '../users/users.module';
     CompaniesModule,
     StudentsModule,
     UsersModule,
+    AgreementsModule,
+    AuthModule,
   ],
   controllers: [InternshipsController],
   providers: [InternshipsService],

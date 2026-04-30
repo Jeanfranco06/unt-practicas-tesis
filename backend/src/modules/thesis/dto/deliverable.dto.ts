@@ -1,4 +1,4 @@
-import { IsInt, IsString, IsDateString, IsOptional, IsUrl, Min } from 'class-validator';
+import { IsInt, IsString, IsDateString, IsOptional, IsUrl, Min, IsIn } from 'class-validator';
 
 export class CreateDeliverableDto {
   @IsInt()
@@ -39,7 +39,7 @@ export class SubmitDeliverableDto {
 }
 
 export class ReviewDeliverableDto {
-  @IsEnum(['aprobado', 'observado'])
+  @IsIn(['aprobado', 'observado'])
   estado: string;
   @IsString()
   @IsOptional()

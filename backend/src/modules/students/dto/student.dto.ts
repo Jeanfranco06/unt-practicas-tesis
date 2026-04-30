@@ -1,5 +1,6 @@
 import { IsInt, IsString, IsOptional, IsUrl, Min, Max, Length } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateStudentDto {
   @IsInt()
@@ -32,4 +33,3 @@ export class CreateStudentDto {
 }
 
 export class UpdateStudentDto extends PartialType(CreateStudentDto) {}
-import { PartialType } from '@nestjs/mapped-types';

@@ -1,0 +1,91 @@
+name: CI / Deployment Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Validate environment variables
+        run: |
+          cd backend
+          node ../init-scripts/validate-env.js
+        env:
+          DB_HOST: localhost
+          DB_PORT: '5432'
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: unt_practicas_test
+          JWT_SECRET: testsecret
+          JWT_REFRESH_SECRET: testrefreshsecret
+          JWT_REFRESH_EXPIRES_IN: 1h
+          FRONTEND_URL: http://localhost:3000
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+
+      - name: Run backend unit tests with coverage
+        run: |
+          cd backend
+          npm test
+
+      - name: Run backend end-to-end tests
+        run: |
+          cd backend
+          npm run test:e2e
+
+      - name: Build backend
+        run: |
+          cd backend
+          npm run build
+
+      - name: Start backend for smoke checks
+        run: |
+          cd backend
+          npm start &
+          npx wait-on http://localhost:4000/api/health
+          curl -f http://localhost:4000/api/health
+
+  frontend:
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci --legacy-peer-deps
+
+      - name: Run frontend unit tests with coverage
+        run: |
+          cd frontend
+          npm test
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build

@@ -1,5 +1,6 @@
 import { IsString, IsInt, IsDateString, IsOptional, IsEnum, Min, Max, Length } from 'class-validator';
 import { OfertaEstado } from '../entities/internship-offer.entity';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateInternshipOfferDto {
   @IsInt()
@@ -42,4 +43,3 @@ export class CreateInternshipOfferDto {
 }
 
 export class UpdateInternshipOfferDto extends PartialType(CreateInternshipOfferDto) {}
-import { PartialType } from '@nestjs/mapped-types';

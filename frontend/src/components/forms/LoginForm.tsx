@@ -28,7 +28,7 @@ export function LoginForm() {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       document.cookie = `accessToken=${data.accessToken}; path=/`;
-      router.push('/dashboard');
+      router.push('/');
     },
   });
 

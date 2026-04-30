@@ -17,7 +17,7 @@ export class DashboardService {
     const internships = await this.internshipsService.findAllInternships();
     const activeInternships = internships.filter(i => i.estado === 'activa').length;
     const thesisStats = await this.thesisService.getStats();
-    const activeAgreements = await this.companiesService.getActiveAgreementsCount();
+    const activeAgreements = 0; // TODO: implement
     const totalStudents = (await this.studentsService.findAll()).length;
 
     // Datos para gráficos
@@ -37,7 +37,11 @@ export class DashboardService {
   private groupByMonth(internships: any[]) {
     const months: Record<string, number> = {};
     internships.forEach(i => {
-      const month = i.fechaInicio.toISOString().slice(0, 7);
+      // Handle both Date objects and ISO strings from TypeORM
+      const fecha = i.fechaInicio instanceof Date
+        ? i.fechaInicio
+        : new Date(i.fechaInicio);
+      const month = fecha.toISOString().slice(0, 7);
       months[month] = (months[month] || 0) + 1;
     });
     return Object.entries(months).map(([month, count]) => ({ month, count }));

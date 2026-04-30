@@ -20,26 +20,26 @@ export class Internship {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'postulacion_id', unique: true })
+  @Column({ name: 'postulacion_id', type: 'int', unique: true })
   postulacionId: number;
 
   @ManyToOne(() => InternshipApplication)
   postulacion: InternshipApplication;
 
-  @Column({ name: 'estudiante_id' })
+  @Column({ name: 'estudiante_id', type: 'int' })
   estudianteId: number;
 
   @ManyToOne(() => Student)
   estudiante: Student;
 
-  @Column({ name: 'empresa_id' })
+  @Column({ name: 'empresa_id', type: 'int' })
   empresaId: number;
 
   @ManyToOne(() => Company)
   empresa: Company;
 
-  @Column({ name: 'asesor_academico_id' })
-  asesorAcademicoId: number;
+  @Column({ name: 'asesor_academico_id', type: 'int', nullable: true })
+  asesorAcademicoId: number | null;
 
   @ManyToOne(() => User)
   asesorAcademico: User;
@@ -71,6 +71,6 @@ export class Internship {
   @OneToMany(() => InternshipReport, (report) => report.practica)
   informes: InternshipReport[];
 
-  @OneToMany(() => FinalEvaluation, (eval) => eval.practica)
+  @OneToMany(() => FinalEvaluation, (finalEval) => finalEval.practica)
   evaluacion: FinalEvaluation[];
 }

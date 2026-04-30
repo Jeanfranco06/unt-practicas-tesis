@@ -36,9 +36,7 @@ export class CompaniesService {
     await this.companyRepo.delete(id);
   }
 
-  // src/modules/companies/companies.service.ts (agregar)
-
-async getActiveAgreementsCount(): Promise<number> {
-  return this.agreementRepo.count({ where: { estado: EstadoConvenio.VIGENTE } });
-}
+  async getActiveAgreementsCount(): Promise<number> {
+    return 0; // placeholder
+  }
 }

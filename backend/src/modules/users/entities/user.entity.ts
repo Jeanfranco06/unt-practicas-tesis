@@ -34,7 +34,7 @@ export class User {
   @Column({ default: true })
   activo: boolean;
 
-  @Column({ name: 'refresh_token', nullable: true })
+  @Column({ name: 'refresh_token', type: 'varchar', nullable: true })
   refreshToken: string | null;
 
   @CreateDateColumn({ name: 'creado_en' })

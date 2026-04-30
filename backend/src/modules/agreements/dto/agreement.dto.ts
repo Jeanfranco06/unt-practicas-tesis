@@ -1,5 +1,6 @@
 import { IsInt, IsEnum, IsString, IsDateString, IsOptional, IsUrl } from 'class-validator';
 import { TipoConvenio, EstadoConvenio } from '../entities/agreement.entity';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateAgreementDto {
   @IsInt()
@@ -27,4 +28,3 @@ export class CreateAgreementDto {
 }
 
 export class UpdateAgreementDto extends PartialType(CreateAgreementDto) {}
-import { PartialType } from '@nestjs/mapped-types';

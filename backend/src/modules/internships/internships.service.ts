@@ -10,6 +10,7 @@ import { FinalEvaluation } from './entities/final-evaluation.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { StudentsService } from '../students/students.service';
 import { UsersService } from '../users/users.service';
+import { AgreementsService } from '../agreements/agreements.service';
 import { CreateInternshipOfferDto, UpdateInternshipOfferDto } from './dto/internship-offer.dto';
 import { CreateApplicationDto, ReviewApplicationDto } from './dto/application.dto';
 import { CreateHoursTrackingDto } from './dto/hours-tracking.dto';
@@ -27,6 +28,7 @@ export class InternshipsService {
     private companiesService: CompaniesService,
     private studentsService: StudentsService,
     private usersService: UsersService,
+    private agreementsService: AgreementsService,
   ) {}
 
   // Ofertas
@@ -34,7 +36,7 @@ export class InternshipsService {
     await this.companiesService.findById(dto.empresaId);
     if (dto.convenioId) {
       // verificar que el convenio pertenezca a la empresa
-      const conv = await this.agreementsService.findById(dto.convenioId); // asumiendo que se inyecta AgreementsService
+      const conv = await this.agreementsService.findById(dto.convenioId);
       if (conv.empresaId !== dto.empresaId) throw new BadRequestException('El convenio no pertenece a la empresa');
     }
     const offer = this.offerRepo.create(dto);
@@ -44,6 +46,11 @@ export class InternshipsService {
   async updateOffer(id: number, dto: UpdateInternshipOfferDto): Promise<InternshipOffer> {
     await this.offerRepo.update(id, dto);
     return this.findOfferById(id);
+  }
+
+  async deleteOffer(id: number): Promise<void> {
+    const offer = await this.findOfferById(id);
+    await this.offerRepo.remove(offer);
   }
 
   async publishOffer(id: number): Promise<InternshipOffer> {
@@ -140,8 +147,8 @@ export class InternshipsService {
     const saved = await this.hoursRepo.save(tracking);
     // recalcular horas completadas
     const totalHoras = await this.hoursRepo.sum('horas', { practicaId: dto.practicaId, aprobadoEmpresa: true, aprobadoAsesor: true });
-    await this.internshipRepo.update(dto.practicaId, { horasCompletadas: totalHoras });
-    return saved;
+    await this.internshipRepo.update(dto.practicaId, { horasCompletadas: totalHoras || 0 });
+    return (saved as any) as HoursTracking;
   }
 
   async approveHoursTracking(id: number, role: 'empresa' | 'asesor'): Promise<HoursTracking> {
@@ -154,7 +161,7 @@ export class InternshipsService {
     if (updated.aprobadoEmpresa && updated.aprobadoAsesor) {
       const internship = await this.findInternshipById(tracking.practicaId);
       const totalHoras = await this.hoursRepo.sum('horas', { practicaId: tracking.practicaId, aprobadoEmpresa: true, aprobadoAsesor: true });
-      await this.internshipRepo.update(tracking.practicaId, { horasCompletadas: totalHoras });
+      await this.internshipRepo.update(tracking.practicaId, { horasCompletadas: totalHoras || 0 });
     }
     return updated;
   }
@@ -165,10 +172,10 @@ export class InternshipsService {
     if (internship.estado !== InternshipEstado.ACTIVA && internship.estado !== InternshipEstado.EN_EVALUACION) {
       throw new BadRequestException('No se puede entregar informe en este estado');
     }
-    const existing = await this.reportRepo.findOneBy({ practicaId: dto.practicaId, tipo: dto.tipo });
+    const existing = await this.reportRepo.findOneBy({ practicaId: dto.practicaId, tipo: dto.tipo as any });
     if (existing) throw new BadRequestException(`Ya existe un informe ${dto.tipo} para esta práctica`);
     const report = this.reportRepo.create(dto);
-    return this.reportRepo.save(report);
+    return (await this.reportRepo.save(report)) as any as InternshipReport;
   }
 
   async evaluateReport(id: number, estado: ReporteEstado, comentario: string): Promise<InternshipReport> {
@@ -196,7 +203,7 @@ export class InternshipsService {
     await this.evalRepo.save(evaluation);
     internship.estado = InternshipEstado.FINALIZADA;
     await this.internshipRepo.save(internship);
-    return evaluation;
+    return (evaluation as any) as FinalEvaluation;
   }
   async findAllInternships(filters?: { estado?: InternshipEstado; estudianteId?: number }): Promise<Internship[]> {
     const where: any = {};

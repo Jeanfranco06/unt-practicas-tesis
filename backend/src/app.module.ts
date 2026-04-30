@@ -10,7 +10,9 @@ import { ThesisModule } from './modules/thesis/thesis.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { TrpcModule } from './modules/trpc/trpc.module';
+import { HealthModule } from './common/health/health.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -25,7 +27,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // usar migraciones
+        synchronize: true, // desarrollo: crea tablas automáticamente
         logging: true,
       }),
     }),
@@ -38,7 +40,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     ThesisModule,
     NotificationsModule,
     ReportsModule,
+    DashboardModule,
     TrpcModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

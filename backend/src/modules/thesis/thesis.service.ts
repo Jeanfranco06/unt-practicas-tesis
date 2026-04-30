@@ -8,6 +8,7 @@ import { DeliverableSubmission, EntregaEstado } from './entities/deliverable-sub
 import { DefenseRecord, ResultadoSustentacion } from './entities/defense-record.entity';
 import { StudentsService } from '../students/students.service';
 import { UsersService } from '../users/users.service';
+import { NotificacionTipo } from '../notifications/entities/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateThesisProjectDto, UpdateThesisProjectDto } from './dto/thesis-project.dto';
 import { CreateThesisAssignmentDto } from './dto/thesis-assignment.dto';
@@ -49,7 +50,7 @@ export class ThesisService {
   }
 
   private canTransition(from: ThesisEstado, to: ThesisEstado): boolean {
-    const transitions = {
+    const transitions: Record<ThesisEstado, ThesisEstado[]> = {
       [ThesisEstado.EN_REGISTRO]: [ThesisEstado.PROPUESTO],
       [ThesisEstado.PROPUESTO]: [ThesisEstado.APROBADO, ThesisEstado.DESAPROBADO],
       [ThesisEstado.APROBADO]: [ThesisEstado.EN_DESARROLLO],
@@ -95,9 +96,9 @@ export class ThesisService {
       usuarioId: dto.docenteId,
       titulo: 'Asignación a tesis',
       mensaje: `Has sido asignado como ${dto.tipo} del proyecto "${project.titulo}"`,
-      tipo: 'info',
+      tipo: 'info' as any,
     });
-    return saved;
+    return (saved as any) as ThesisAssignment;
   }
 
   async removeAssignment(id: number): Promise<void> {
@@ -130,7 +131,7 @@ export class ThesisService {
         usuarioId: ass.docenteId,
         titulo: 'Nueva entrega de tesis',
         mensaje: `El estudiante ha entregado "${deliverable.nombre}"`,
-        tipo: 'info',
+        tipo: NotificacionTipo.INFO,
       });
     }
     return saved;
@@ -143,7 +144,7 @@ export class ThesisService {
       throw new BadRequestException('Esta entrega ya fue revisada');
     }
     submission.estado = dto.estado === 'aprobado' ? EntregaEstado.APROBADO : EntregaEstado.OBSERVADO;
-    submission.retroalimentacionDocente = dto.retroalimentacion || null;
+    submission.retroalimentacionDocente = dto.retroalimentacion || '';
     const updated = await this.submissionRepo.save(submission);
     // Notificar al estudiante
     const project = submission.entregable.proyecto;
@@ -151,7 +152,7 @@ export class ThesisService {
       usuarioId: project.estudianteId,
       titulo: `Entrega ${submission.estado === EntregaEstado.APROBADO ? 'aprobada' : 'observada'}`,
       mensaje: `Tu entrega "${submission.tituloEntrega}" ha sido ${submission.estado}. ${dto.retroalimentacion || ''}`,
-      tipo: submission.estado === EntregaEstado.APROBADO ? 'exito' : 'advertencia',
+      tipo: submission.estado === EntregaEstado.APROBADO ? ('exito' as any) : ('advertencia' as any),
     });
     return updated;
   }
@@ -165,7 +166,7 @@ export class ThesisService {
     const existing = await this.defenseRepo.findOneBy({ proyectoId });
     if (existing) throw new BadRequestException('Ya existe un acta para este proyecto');
     const record = this.defenseRepo.create({ proyectoId, ...dto });
-    const saved = await this.defenseRepo.save(record);
+    const saved = (await this.defenseRepo.save(record)) as any as DefenseRecord;
     project.estado = saved.resultado === ResultadoSustentacion.APROBADO ? ThesisEstado.CULMINADO : ThesisEstado.DESAPROBADO;
     await this.projectRepo.save(project);
     return saved;
@@ -174,11 +175,11 @@ export class ThesisService {
     const all = await this.findAllProjects();
     const enDesarrollo = all.filter(p => p.estado === ThesisEstado.EN_DESARROLLO).length;
     const culminados = all.filter(p => p.estado === ThesisEstado.CULMINADO).length;
-    const porArea = all.reduce((acc, p) => {
+    const porArea: Record<string, number> = {};
+    all.forEach(p => {
       const area = p.areaConocimiento;
-      acc[area] = (acc[area] || 0) + 1;
-      return acc;
-    }, {});
+      porArea[area] = (porArea[area] || 0) + 1;
+    });
     return {
       total: all.length,
       enDesarrollo,

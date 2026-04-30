@@ -42,7 +42,7 @@ export class DeliverableSubmission {
   estado: EntregaEstado;
 
   @Column({ name: 'retroalimentacion_docente', type: 'text', nullable: true })
-  retroalimentacionDocente: string;
+  retroalimentacionDocente: string | null;
 
   @CreateDateColumn({ name: 'creado_en' })
   creadoEn: Date;

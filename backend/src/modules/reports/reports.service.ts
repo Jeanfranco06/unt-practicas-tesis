@@ -61,7 +61,7 @@ export class ReportsService {
   }
 
   private renderTemplate(templateName: string, data: any): string {
-    const templates = {
+    const templates: Record<string, string> = {
       'internship-report': `
         <html>
           <head><meta charset="UTF-8"><title>Reporte de Prácticas</title></head>

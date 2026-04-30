@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUrl, IsEnum } from 'class-validator';
 import { ApplicationEstado } from '../entities/internship-application.entity';
 
 export class CreateApplicationDto {

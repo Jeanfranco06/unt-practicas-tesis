@@ -16,5 +16,6 @@
       "noImplicitAny": true,
       "strictNullChecks": true,
       "strictPropertyInitialization": false
-    }
+    },
+    "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
   }

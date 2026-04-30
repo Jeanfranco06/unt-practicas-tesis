@@ -10,6 +10,7 @@ import { ThesisController } from './thesis.controller';
 import { StudentsModule } from '../students/students.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     StudentsModule,
     UsersModule,
     NotificationsModule,
+    AuthModule,
   ],
   controllers: [ThesisController],
   providers: [ThesisService],
