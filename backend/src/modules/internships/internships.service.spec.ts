@@ -4,8 +4,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { InternshipOffer, OfertaEstado } from './entities/internship-offer.entity';
 import { InternshipApplication, ApplicationEstado } from './entities/internship-application.entity';
 import { Internship } from './entities/internship.entity';
+import { HoursTracking } from './entities/hours-tracking.entity';
+import { InternshipReport } from './entities/internship-report.entity';
+import { FinalEvaluation } from './entities/final-evaluation.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { StudentsService } from '../students/students.service';
+import { UsersService } from '../users/users.service';
+import { AgreementsService } from '../agreements/agreements.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('InternshipsService', () => {
@@ -13,6 +18,17 @@ describe('InternshipsService', () => {
   let offerRepo: any;
   let appRepo: any;
   let internshipRepo: any;
+
+  const mockRepository = () => ({
+    findOne: jest.fn(),
+    findOneBy: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    delete: jest.fn(),
+  });
 
   const mockOffer = {
     id: 1,
@@ -31,11 +47,16 @@ describe('InternshipsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InternshipsService,
-        { provide: getRepositoryToken(InternshipOffer), useValue: { findOne: jest.fn(), find: jest.fn(), create: jest.fn(), save: jest.fn(), update: jest.fn() } },
-        { provide: getRepositoryToken(InternshipApplication), useValue: { findOneBy: jest.fn(), create: jest.fn(), save: jest.fn() } },
-        { provide: getRepositoryToken(Internship), useValue: { findOneBy: jest.fn(), create: jest.fn(), save: jest.fn() } },
+        { provide: getRepositoryToken(InternshipOffer), useValue: mockRepository() },
+        { provide: getRepositoryToken(InternshipApplication), useValue: mockRepository() },
+        { provide: getRepositoryToken(Internship), useValue: mockRepository() },
+        { provide: getRepositoryToken(HoursTracking), useValue: mockRepository() },
+        { provide: getRepositoryToken(InternshipReport), useValue: mockRepository() },
+        { provide: getRepositoryToken(FinalEvaluation), useValue: mockRepository() },
         { provide: CompaniesService, useValue: { findById: jest.fn().mockResolvedValue(true) } },
         { provide: StudentsService, useValue: { findById: jest.fn().mockResolvedValue(true) } },
+        { provide: UsersService, useValue: { findById: jest.fn().mockResolvedValue(true) } },
+        { provide: AgreementsService, useValue: { findById: jest.fn().mockResolvedValue(true) } },
       ],
     }).compile();
 
