@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useSidebar } from '@/components/layout/SidebarContext';
+import { NotificationsBadge } from '@/components/layout/NotificationsBadge';
 
 export function AdminHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -80,15 +81,7 @@ export function AdminHeader() {
         {/* Right actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
           <ThemeToggle />
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative p-2 rounded-xl hover:bg-muted transition-colors"
-          >
-            <Bell className="w-5 h-5 text-muted-foreground" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background" />
-          </motion.button>
+          <NotificationsBadge />
 
           <motion.div
             whileHover={{ scale: 1.02 }}

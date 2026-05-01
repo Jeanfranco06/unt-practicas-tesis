@@ -39,4 +39,19 @@ export class UsersService {
   async remove(id: number): Promise<void> {
     await this.userRepo.delete(id);
   }
+
+  async findPendingAdvisors(): Promise<User[]> {
+    return this.userRepo.find({
+      where: { rol: RolUsuario.ASESOR, activo: false },
+    });
+  }
+
+  async approveUser(userId: number): Promise<User> {
+    await this.userRepo.update(userId, { activo: true });
+    return this.findById(userId);
+  }
+
+  async rejectUser(userId: number): Promise<void> {
+    await this.userRepo.delete(userId);
+  }
 }

@@ -32,6 +32,10 @@ export class UpdateUserDto {
 
   @IsString()
   @IsOptional()
+  contrasenaHash?: string;
+
+  @IsString()
+  @IsOptional()
   nombre?: string;
 
   @IsString()

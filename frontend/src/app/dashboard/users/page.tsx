@@ -22,6 +22,9 @@ import {
   getStatusBadgeColor,
   rolSelectOptions,
   statusOptions,
+  getPendingAdvisors,
+  approveUser,
+  rejectUser,
   API_URL,
   fetchWithAuth,
   type User
@@ -38,7 +41,7 @@ const itemVariants: Variants = {
 };
 
 interface ConfirmAction {
-  type: 'delete' | 'toggle' | null;
+  type: 'delete' | 'toggle' | 'approve' | 'reject' | null;
   userId: number | null;
   userName: string;
   title: string;
@@ -52,7 +55,9 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>('todos');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [users, setUsers] = useState<User[]>([]);
+  const [pendingAdvisors, setPendingAdvisors] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPending, setIsLoadingPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>({
     type: null,
@@ -75,8 +80,21 @@ export default function UsersPage() {
     }
   };
 
+  const loadPendingAdvisors = async () => {
+    try {
+      setIsLoadingPending(true);
+      const data = await getPendingAdvisors();
+      setPendingAdvisors(data);
+    } catch (err: any) {
+      console.error('Error loading pending advisors:', err);
+    } finally {
+      setIsLoadingPending(false);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
+    loadPendingAdvisors();
   }, []);
 
   const showDeleteConfirm = (user: User) => {
@@ -100,6 +118,26 @@ export default function UsersPage() {
         ? `¿Deseas activar a "${getFullName(user)}"? Podrá acceder al sistema.`
         : `¿Deseas desactivar a "${getFullName(user)}"? No podrá acceder al sistema.`,
       isActivating,
+    });
+  };
+
+  const showApproveConfirm = (user: User) => {
+    setConfirmAction({
+      type: 'approve',
+      userId: user.id,
+      userName: getFullName(user),
+      title: 'Aprobar cuenta de asesor',
+      description: `¿Aprobar la cuenta de asesor de "${getFullName(user)}"? El usuario podrá acceder al sistema.`,
+    });
+  };
+
+  const showRejectConfirm = (user: User) => {
+    setConfirmAction({
+      type: 'reject',
+      userId: user.id,
+      userName: getFullName(user),
+      title: 'Rechazar cuenta de asesor',
+      description: `¿Rechazar la cuenta de asesor de "${getFullName(user)}"? Esta acción eliminará la cuenta permanentemente.`,
     });
   };
 
@@ -135,11 +173,45 @@ export default function UsersPage() {
     }
   };
 
+  const handleApprove = async () => {
+    if (!confirmAction.userId) return;
+    const id = confirmAction.userId;
+    setConfirmAction({ type: null, userId: null, userName: '', title: '', description: '' });
+
+    try {
+      await approveUser(id);
+      toast({ title: 'Éxito', description: 'Cuenta de asesor aprobada exitosamente.' });
+      loadUsers();
+      loadPendingAdvisors();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleReject = async () => {
+    if (!confirmAction.userId) return;
+    const id = confirmAction.userId;
+    setConfirmAction({ type: null, userId: null, userName: '', title: '', description: '' });
+
+    try {
+      await rejectUser(id);
+      toast({ title: 'Éxito', description: 'Cuenta de asesor rechazada exitosamente.' });
+      loadUsers();
+      loadPendingAdvisors();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
   const handleConfirmAction = () => {
     if (confirmAction.type === 'delete') {
       handleDelete();
     } else if (confirmAction.type === 'toggle') {
       handleToggle();
+    } else if (confirmAction.type === 'approve') {
+      handleApprove();
+    } else if (confirmAction.type === 'reject') {
+      handleReject();
     }
   };
 
@@ -255,6 +327,53 @@ export default function UsersPage() {
           <p className="text-sm text-muted-foreground">Filtrados</p>
         </div>
       </motion.div>
+
+      {/* Pending Advisors Section */}
+      {pendingAdvisors.length > 0 && (
+        <motion.div variants={itemVariants} className="p-6 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <AlertCircle className="w-5 h-5 text-amber-600" />
+            <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">
+              Asesores Pendientes de Aprobación ({pendingAdvisors.length})
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {pendingAdvisors.map((advisor) => (
+              <div
+                key={advisor.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-card rounded-lg border border-border"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full ${getAvatarColor(advisor)} flex items-center justify-center text-white font-semibold text-sm`}>
+                    {getInitials(advisor)}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">{getFullName(advisor)}</p>
+                    <p className="text-sm text-muted-foreground">{advisor.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => showApproveConfirm(advisor)}
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <UserCheck className="w-4 h-4 mr-1" /> Aprobar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => showRejectConfirm(advisor)}
+                    className="border-red-500/30 text-red-600 hover:bg-red-500/10"
+                  >
+                    <UserX className="w-4 h-4 mr-1" /> Rechazar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Users List */}
       <motion.div variants={itemVariants} className="grid gap-4">

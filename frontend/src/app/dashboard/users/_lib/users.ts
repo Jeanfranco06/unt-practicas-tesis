@@ -125,6 +125,22 @@ export async function toggleUserStatus(id: number, activo: boolean): Promise<Use
   });
 }
 
+export async function getPendingAdvisors(): Promise<User[]> {
+  return fetchWithAuth(`${API_URL}/api/users/pending-advisors`);
+}
+
+export async function approveUser(id: number): Promise<User> {
+  return fetchWithAuth(`${API_URL}/api/users/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+export async function rejectUser(id: number): Promise<void> {
+  return fetchWithAuth(`${API_URL}/api/users/${id}/reject`, {
+    method: 'POST',
+  });
+}
+
 export function getFullName(user: User): string {
   return `${user.nombre} ${user.apellidoPaterno} ${user.apellidoMaterno}`.trim();
 }

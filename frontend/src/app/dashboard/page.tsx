@@ -9,10 +9,16 @@ import {
   TrendingUp,
   ChevronRight,
   Clock,
+  Bell,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/react';
 import { CardSkeleton, LoadingState } from '@/components/student/LoadingState';
+import { getPendingAdvisors } from './users/_lib/users';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -59,6 +65,30 @@ const statCards = [
 ];
 
 export default function DashboardPage() {
+  const { role } = useAuth();
+  const [pendingAdvisors, setPendingAdvisors] = useState<any[]>([]);
+  const [isLoadingPending, setIsLoadingPending] = useState(true);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    if (role === 'Administrador') {
+      loadPendingAdvisors();
+    }
+  }, [role]);
+
+  const loadPendingAdvisors = async () => {
+    try {
+      setIsLoadingPending(true);
+      const advisors = await getPendingAdvisors();
+      setPendingAdvisors(advisors);
+    } catch (error) {
+      console.error('Error loading pending advisors:', error);
+      setPendingAdvisors([]);
+    } finally {
+      setIsLoadingPending(false);
+    }
+  };
+
   // @ts-ignore - TRPC types need regeneration after backend changes
   const { data: stats, isLoading } = (trpc as any).dashboard?.getStats?.useQuery() || { data: null, isLoading: false };
 
@@ -98,6 +128,48 @@ export default function DashboardPage() {
           Resumen del sistema de prácticas y tesis
         </p>
       </motion.div>
+
+      {/* Notifications Banner - Solo para admin */}
+      {role === 'Administrador' && pendingAdvisors.length > 0 && !bannerDismissed && (
+        <motion.div
+          variants={itemVariants}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/20 rounded-lg">
+              <Bell className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-medium text-amber-900 dark:text-amber-100">
+                Tienes {pendingAdvisors.length} solicitud{pendingAdvisors.length > 1 ? 'es' : ''} pendiente{pendingAdvisors.length > 1 ? 's' : ''}
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Asesores esperando aprobación
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => window.location.href = '/dashboard/users'}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Revisar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setBannerDismissed(true)}
+              className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Stats Grid */}
       <motion.div

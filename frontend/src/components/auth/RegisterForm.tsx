@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, ArrowRight, GraduationCap, Briefcase } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,9 @@ const registerSchema = z.object({
   email: z.string().min(1, 'El correo es requerido').email('Correo inválido'),
   contrasena: z.string().min(1, 'La contraseña es requerida').min(6, 'Mínimo 6 caracteres'),
   confirmarContrasena: z.string().min(1, 'Confirma tu contraseña'),
+  rol: z.enum(['Estudiante', 'Asesor'], {
+    required_error: 'Selecciona un tipo de cuenta',
+  }),
 }).refine((data) => data.contrasena === data.confirmarContrasena, {
   message: 'Las contraseñas no coinciden',
   path: ['confirmarContrasena'],
@@ -40,17 +43,16 @@ export function RegisterForm() {
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { nombre: '', apellidoPaterno: '', apellidoMaterno: '', email: '', contrasena: '', confirmarContrasena: '' },
+    defaultValues: { nombre: '', apellidoPaterno: '', apellidoMaterno: '', email: '', contrasena: '', confirmarContrasena: '', rol: 'Estudiante' },
   });
 
   const contrasena = watch('contrasena');
 
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: (data: any) => {
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      document.cookie = `accessToken=${data.accessToken}; path=/`;
-      router.push('/');
+      setRegisterError(null);
+      // Redirigir siempre al login con el mensaje apropiado
+      router.push('/login?message=' + encodeURIComponent(data.message));
     },
     onError: (error: any) => {
       setRegisterError(error.message || 'Error al crear la cuenta');
@@ -65,7 +67,7 @@ export function RegisterForm() {
       nombre: data.nombre,
       apellidoPaterno: data.apellidoPaterno,
       apellidoMaterno: data.apellidoMaterno,
-      rol: 'Estudiante',
+      rol: data.rol,
     });
   };
 
@@ -141,16 +143,57 @@ export function RegisterForm() {
         <motion.div variants={itemVariants} initial="hidden" animate="visible" transition={{ delay: 0.1 }}>
           <Label htmlFor="email" className="text-sm font-medium text-slate-300 lg:text-slate-700 flex items-center gap-2 mb-1.5">
             <Mail className="w-4 h-4 text-slate-500" />
-            Correo Institucional
+            Correo
           </Label>
           <Input
             id="email"
             type="email"
-            placeholder="estudiante@unt.edu.pe"
+            placeholder="tu@email.com"
             className={`h-11 bg-slate-800/50 lg:bg-white border-slate-700 lg:border-slate-200 text-white lg:text-slate-900 placeholder:text-slate-500 rounded-lg focus:border-emerald-500 focus:ring-emerald-500/20 ${errors.email ? 'border-red-500' : ''}`}
             {...register('email')}
           />
           {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>}
+        </motion.div>
+
+        {/* Tipo de Cuenta */}
+        <motion.div variants={itemVariants} initial="hidden" animate="visible" transition={{ delay: 0.12 }}>
+          <Label className="text-sm font-medium text-slate-300 lg:text-slate-700 mb-2 block">Tipo de Cuenta</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={`relative cursor-pointer ${errors.rol ? 'border-red-500' : ''}`}>
+              <input
+                type="radio"
+                value="Estudiante"
+                {...register('rol')}
+                className="peer sr-only"
+              />
+              <div className="p-4 rounded-lg border-2 border-slate-700 lg:border-slate-200 bg-slate-800/50 lg:bg-white peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition-all">
+                <div className="flex flex-col items-center gap-2">
+                  <GraduationCap className="w-6 h-6 text-slate-400 peer-checked:text-emerald-500" />
+                  <span className="text-sm font-medium text-slate-300 lg:text-slate-700">Estudiante</span>
+                </div>
+              </div>
+            </label>
+            <label className={`relative cursor-pointer ${errors.rol ? 'border-red-500' : ''}`}>
+              <input
+                type="radio"
+                value="Asesor"
+                {...register('rol')}
+                className="peer sr-only"
+              />
+              <div className="p-4 rounded-lg border-2 border-slate-700 lg:border-slate-200 bg-slate-800/50 lg:bg-white peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition-all">
+                <div className="flex flex-col items-center gap-2">
+                  <Briefcase className="w-6 h-6 text-slate-400 peer-checked:text-emerald-500" />
+                  <span className="text-sm font-medium text-slate-300 lg:text-slate-700">Asesor</span>
+                </div>
+              </div>
+            </label>
+          </div>
+          {errors.rol && <p className="text-xs text-red-400 mt-1">{errors.rol.message}</p>}
+          <p className="text-xs text-slate-500 mt-2">
+            {watch('rol') === 'Asesor' 
+              ? 'Las cuentas de asesor requieren aprobación administrativa.' 
+              : 'Las cuentas de estudiante se activan inmediatamente.'}
+          </p>
         </motion.div>
 
         {/* Contraseña */}

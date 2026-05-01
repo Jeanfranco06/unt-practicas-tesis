@@ -36,10 +36,21 @@ export function ForgotPasswordForm() {
     setIsLoading(true);
     setError(null);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al procesar la solicitud');
+      }
+      
       setIsSent(true);
     } catch (err) {
-      setError('No pudimos procesar tu solicitud. Intenta nuevamente.');
+      setError(err instanceof Error ? err.message : 'No pudimos procesar tu solicitud. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }

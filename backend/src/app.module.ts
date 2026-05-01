@@ -13,6 +13,9 @@ import { TrpcModule } from './modules/trpc/trpc.module';
 import { HealthModule } from './common/health/health.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './common/guards/auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -43,6 +46,16 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     DashboardModule,
     TrpcModule,
     HealthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
   ],
 })
 export class AppModule {}
