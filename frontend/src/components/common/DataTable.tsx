@@ -25,20 +25,30 @@ export function DataTable({ data, columns }: DataTableProps) {
   };
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="border-border hover:bg-muted/50">
             {columns.map((col) => (
-              <TableHead key={col.key}>{col.header}</TableHead>
+              <TableHead
+                key={col.key}
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30"
+              >
+                {col.header}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.map((row, idx) => (
-            <TableRow key={idx}>
+            <TableRow
+              key={idx}
+              className="border-border hover:bg-muted/30 transition-colors"
+            >
               {columns.map((col) => (
-                <TableCell key={col.key}>{getValue(row, col.key)}</TableCell>
+                <TableCell key={col.key} className="text-foreground">
+                  {getValue(row, col.key)}
+                </TableCell>
               ))}
             </TableRow>
           ))}

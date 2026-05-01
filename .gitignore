@@ -9,6 +9,8 @@ yarn-error.log*
 # Build output
 dist/
 coverage/
+.next/
+.next-dev/
 
 # Environment variables
 .env

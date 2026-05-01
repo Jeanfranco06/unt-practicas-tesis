@@ -32,6 +32,12 @@ export class InternshipsController {
     return this.service.createOffer(dto);
   }
 
+  @Get('offers/:id')
+  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ESTUDIANTE, RolUsuario.REPRESENTANTE_EMPRESA)
+  findOfferById(@Param('id') id: string) {
+    return this.service.findOfferById(+id);
+  }
+
   @Patch('offers/:id')
   @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA)
   updateOffer(@Param('id') id: string, @Body() dto: UpdateInternshipOfferDto) {

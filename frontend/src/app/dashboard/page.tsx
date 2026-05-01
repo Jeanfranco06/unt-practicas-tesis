@@ -27,7 +27,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24 },
+    transition: { type: 'spring' as const, stiffness: 300, damping: 24 },
   },
 };
 
@@ -35,30 +35,26 @@ const statCards = [
   {
     title: 'Prácticas Activas',
     icon: Briefcase,
-    color: 'bg-blue-500',
-    bgColor: 'bg-blue-500',
-    trend: '+12%',
+    color: 'bg-primary',
+    bgColor: 'bg-primary',
   },
   {
     title: 'Tesis en Curso',
     icon: BookOpen,
     color: 'bg-purple-500',
     bgColor: 'bg-purple-500',
-    trend: '+5%',
   },
   {
     title: 'Convenios Vigentes',
     icon: FileText,
     color: 'bg-emerald-500',
     bgColor: 'bg-emerald-500',
-    trend: '+3%',
   },
   {
     title: 'Estudiantes Registrados',
     icon: Users,
     color: 'bg-amber-500',
     bgColor: 'bg-amber-500',
-    trend: '+18%',
   },
 ];
 
@@ -94,11 +90,11 @@ export default function DashboardPage() {
       className="space-y-8"
     >
       {/* Welcome */}
-      <motion.div variants={itemVariants} className="space-y-2">
-        <h1 className="text-2xl font-bold text-slate-100">
+      <motion.div variants={itemVariants} className="space-y-1">
+        <h1 className="text-2xl font-bold text-foreground">
           Panel de Administración
         </h1>
-        <p className="text-slate-400">
+        <p className="text-muted-foreground">
           Resumen del sistema de prácticas y tesis
         </p>
       </motion.div>
@@ -118,21 +114,21 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-lg hover:shadow-xl hover:border-slate-700 transition-all duration-300"
+              className="p-6 bg-card rounded-2xl border border-border shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all duration-300"
             >
               <div className="flex items-start justify-between">
                 <div className={`p-3 ${stat.color} rounded-xl`}>
                   <Icon className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400">
-                  {stat.trend}
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  +{Math.floor(Math.random() * 20) + 1}%
                 </span>
               </div>
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-slate-400">{stat.title}</h3>
-                <p className="text-3xl font-bold text-white mt-1">{value}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">{stat.title}</h3>
+                <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
               </div>
-              <div className="mt-4 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div className="mt-4 h-1.5 bg-muted rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min((value / 100) * 100, 100)}%` }}
@@ -150,20 +146,20 @@ export default function DashboardPage() {
         {/* Internships by Month */}
         <motion.div
           variants={itemVariants}
-          className="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg"
+          className="bg-card rounded-2xl border border-border shadow-soft"
         >
-          <div className="p-6 border-b border-slate-800">
+          <div className="p-6 border-b border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Briefcase className="w-5 h-5 text-blue-400" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Briefcase className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-100">Prácticas por Mes</h2>
-                  <p className="text-sm text-slate-500">Inicios de prácticas mensuales</p>
+                  <h2 className="text-base font-semibold text-foreground">Prácticas por Mes</h2>
+                  <p className="text-xs text-muted-foreground">Inicios de prácticas mensuales</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
                 Ver todo
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -174,13 +170,13 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {stats.internshipByMonth.slice(0, 6).map((item: any, index: number) => (
                   <div key={item.month} className="flex items-center gap-4">
-                    <span className="text-sm text-slate-400 w-16">{item.month}</span>
-                    <div className="flex-1 h-8 bg-slate-800 rounded-lg overflow-hidden">
+                    <span className="text-sm text-muted-foreground w-16">{item.month}</span>
+                    <div className="flex-1 h-8 bg-muted rounded-lg overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min((item.count / 10) * 100, 100)}%` }}
                         transition={{ delay: index * 0.1, duration: 0.5 }}
-                        className="h-full bg-blue-500 rounded-lg flex items-center justify-end px-2"
+                        className="h-full bg-primary rounded-lg flex items-center justify-end px-2"
                       >
                         <span className="text-xs font-medium text-white">{item.count}</span>
                       </motion.div>
@@ -189,9 +185,9 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-slate-500">
-                <Clock className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                <p>No hay datos de prácticas disponibles</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="text-sm">No hay datos de prácticas disponibles</p>
               </div>
             )}
           </div>
@@ -200,20 +196,20 @@ export default function DashboardPage() {
         {/* Thesis by Area */}
         <motion.div
           variants={itemVariants}
-          className="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg"
+          className="bg-card rounded-2xl border border-border shadow-soft"
         >
-          <div className="p-6 border-b border-slate-800">
+          <div className="p-6 border-b border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <BookOpen className="w-5 h-5 text-purple-400" />
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <BookOpen className="w-5 h-5 text-purple-500" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-100">Tesis por Área</h2>
-                  <p className="text-sm text-slate-500">Distribución por área de conocimiento</p>
+                  <h2 className="text-base font-semibold text-foreground">Tesis por Área</h2>
+                  <p className="text-xs text-muted-foreground">Distribución por área de conocimiento</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
                 Ver todo
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -224,8 +220,8 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {stats.thesisByArea.map((item: any, index: number) => (
                   <div key={item.area} className="flex items-center gap-4">
-                    <span className="text-sm text-slate-400 flex-1 truncate">{item.area}</span>
-                    <div className="flex-1 h-8 bg-slate-800 rounded-lg overflow-hidden">
+                    <span className="text-sm text-muted-foreground flex-1 truncate">{item.area}</span>
+                    <div className="flex-1 h-8 bg-muted rounded-lg overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min((item.count / 5) * 100, 100)}%` }}
@@ -239,9 +235,9 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-slate-500">
-                <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                <p>No hay datos de tesis disponibles</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="text-sm">No hay datos de tesis disponibles</p>
               </div>
             )}
           </div>
@@ -255,7 +251,7 @@ export default function DashboardPage() {
             title: 'Gestionar Prácticas',
             description: 'Ver y administrar prácticas activas',
             href: '/dashboard/internships',
-            color: 'bg-blue-500',
+            color: 'bg-primary',
             icon: Briefcase,
           },
           {
@@ -272,24 +268,24 @@ export default function DashboardPage() {
             color: 'bg-emerald-500',
             icon: TrendingUp,
           },
-        ].map((action, index) => (
+        ].map((action) => (
           <a key={action.title} href={action.href}>
             <motion.div
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              className="p-5 bg-slate-900 rounded-xl border border-slate-800 shadow-lg hover:shadow-xl hover:border-slate-700 transition-all cursor-pointer group"
+              className="p-5 bg-card rounded-xl border border-border shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center`}>
+                <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center shadow-sm`}>
                   <action.icon className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-slate-100 group-hover:text-blue-400 transition-colors">
+                  <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                     {action.title}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{action.description}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-blue-400 transition-colors" />
+                <ChevronRight className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
               </div>
             </motion.div>
           </a>

@@ -52,14 +52,22 @@ export function middleware(request: NextRequest) {
   const userRole = payload?.rol || null;
 
   // Redirect authenticated users from auth pages to their dashboard
-  if (isAuthPage && token) {
+  if (isAuthPage && token && userRole) {
     const dashboard = getDashboardRouteByRole(userRole);
     return NextResponse.redirect(new URL(dashboard, request.url));
   }
 
+  if (isAuthPage && token && !userRole) {
+    const response = NextResponse.next();
+    response.cookies.delete('accessToken');
+    return response;
+  }
+
   // Protect student routes - require authentication
-  if (isStudentRoute && !token) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (isStudentRoute && (!token || !userRole)) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('accessToken');
+    return response;
   }
   
   // If student tries to access admin routes, redirect to student dashboard
@@ -68,8 +76,10 @@ export function middleware(request: NextRequest) {
   }
 
   // Protect admin routes - require authentication
-  if (isAdminRoute && !token) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (isAdminRoute && (!token || !userRole)) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('accessToken');
+    return response;
   }
 
   // Allow all other routes to proceed (including student routes for authenticated users)

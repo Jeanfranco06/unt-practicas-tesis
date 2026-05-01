@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -104,14 +103,6 @@ function StatCard({ value, label, delay }: { value: string; label: string; delay
 }
 
 export function AuthLayout({ children }: AuthLayoutProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden bg-slate-950">
       {/* Lado izquierdo - Branding Premium */}

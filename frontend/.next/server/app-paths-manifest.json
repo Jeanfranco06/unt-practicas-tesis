@@ -1,4 +1,6 @@
 {
   "/dashboard/internships/page": "app/dashboard/internships/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js"
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/dashboard/internships/[id]/page": "app/dashboard/internships/[id]/page.js",
+  "/dashboard/internships/new/page": "app/dashboard/internships/new/page.js"
 }

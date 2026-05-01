@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,17 +14,14 @@ import {
   LogOut,
   GraduationCap,
   Shield,
-  Menu,
   X,
-  ChevronLeft,
-  ChevronRight,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth, UserRole } from '@/hooks/useAuth';
+import { useSidebar } from '@/components/layout/SidebarContext';
 
-// Define navigation items by role
 const navItemsByRole: Record<UserRole, { href: string; label: string; icon: any }[]> = {
   Administrador: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -53,7 +50,7 @@ const navItemsByRole: Record<UserRole, { href: string; label: string; icon: any 
     { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
     { href: '/dashboard/companies', label: 'Mi Empresa', icon: Building2 },
   ],
-  Estudiante: [], // Estudiantes usan el StudentSidebar
+  Estudiante: [],
 };
 
 const secondaryNav = [
@@ -61,33 +58,19 @@ const secondaryNav = [
 ];
 
 export function AdminSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
   const { role, logout } = useAuth();
+  const { collapsed, mobileOpen, setMobileOpen, toggleMobileOpen } = useSidebar();
 
-  // Detect mobile screen size
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileOpen(false);
-  }, [pathname]);
+  }, [pathname, setMobileOpen]);
 
-  // Listen for mobile menu toggle
   useEffect(() => {
-    const handleToggle = () => setMobileOpen(prev => !prev);
-    window.addEventListener('toggleMobileMenu', handleToggle);
-    return () => window.removeEventListener('toggleMobileMenu', handleToggle);
-  }, []);
+    window.addEventListener('toggleMobileMenu', toggleMobileOpen);
+    return () => window.removeEventListener('toggleMobileMenu', toggleMobileOpen);
+  }, [toggleMobileOpen]);
 
-  // Get navigation items based on role
   const navItems = role ? navItemsByRole[role] || [] : [];
 
   if (!role || role === 'Estudiante') return null;
@@ -109,31 +92,37 @@ export function AdminSidebar() {
 
       {/* Sidebar */}
       <motion.aside
-        initial={{ x: isMobile ? -288 : 0 }}
+        initial={false}
         animate={{
-          x: isMobile ? (mobileOpen ? 0 : -288) : 0,
-          width: collapsed ? 80 : 288
+          x: mobileOpen ? 0 : typeof window !== 'undefined' && window.innerWidth < 1024 ? -288 : 0,
+          width: collapsed ? 80 : 288,
         }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-40',
-          'bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900',
-          'flex flex-col transition-all duration-300'
+          'fixed left-0 top-0 bottom-0 z-40 flex flex-col',
+          'bg-sidebar border-r border-sidebar-border shadow-elevated',
+          // On mobile, start hidden off-screen
+          !mobileOpen && '-translate-x-full lg:translate-x-0'
         )}
+        style={{ width: collapsed ? 80 : 288 }}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-700/50">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border/60">
           <div className="lg:hidden">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setMobileOpen(false)}
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700"
+              className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
             >
               <X className="w-5 h-5" />
             </Button>
           </div>
-          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden flex-1 justify-center lg:justify-start">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/25">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-3 overflow-hidden flex-1 justify-center lg:justify-start"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
               {role === 'Administrador' ? (
                 <Shield className="w-6 h-6 text-white" />
               ) : (
@@ -146,7 +135,7 @@ export function AdminSidebar() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="font-bold text-white text-lg whitespace-nowrap"
+                  className="font-bold text-sidebar-foreground text-lg whitespace-nowrap overflow-hidden"
                 >
                   {role === 'Administrador' ? 'UNT Admin' : 'UNT Sistema'}
                 </motion.span>
@@ -156,48 +145,53 @@ export function AdminSidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
-            // Dashboard is only active on exact match, other items are active on exact or subroutes
-            const isActive = item.href === '/dashboard'
-              ? pathname === '/dashboard'
-              : pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            const isActive =
+              item.href === '/dashboard'
+                ? pathname === '/dashboard'
+                : pathname === item.href || pathname?.startsWith(`${item.href}/`);
             const Icon = item.icon;
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                title={collapsed ? item.label : undefined}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-                  'hover:bg-slate-700/50 group relative',
+                  'hover:bg-sidebar-accent group relative',
+                  collapsed && 'justify-center',
                   isActive
-                    ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30'
-                    : 'text-slate-300 hover:text-white'
+                    ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                    : 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
                 )}
               >
                 <Icon
                   className={cn(
                     'w-5 h-5 flex-shrink-0 transition-colors',
-                    isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-300'
+                    isActive
+                      ? 'text-primary'
+                      : 'text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70'
                   )}
                 />
                 <AnimatePresence>
                   {!collapsed && (
                     <motion.span
-                      initial={{ opacity: 0, x: -10 }}
+                      initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ duration: 0.15 }}
                       className="whitespace-nowrap"
                     >
                       {item.label}
                     </motion.span>
                   )}
                 </AnimatePresence>
-                {isActive && (
+                {isActive && !collapsed && (
                   <motion.div
                     layoutId="activeNavAdmin"
-                    className="absolute left-0 w-1 h-8 bg-blue-500 rounded-r-full"
+                    className="absolute left-0 w-1 h-8 bg-primary rounded-r-full"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -207,28 +201,32 @@ export function AdminSidebar() {
             );
           })}
 
-          <div className="pt-4 mt-4 border-t border-slate-700/50">
+          <div className="pt-4 mt-4 border-t border-sidebar-border/50">
             {secondaryNav.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
-
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={collapsed ? item.label : undefined}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-                    'hover:bg-slate-700/50 group',
-                    isActive ? 'bg-slate-700/50 text-white' : 'text-slate-400 hover:text-slate-300'
+                    'hover:bg-sidebar-accent group',
+                    collapsed && 'justify-center',
+                    isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-sidebar-foreground/60 hover:text-sidebar-foreground'
                   )}
                 >
-                  <Icon className="w-5 h-5 flex-shrink-0 text-slate-500 group-hover:text-slate-300" />
+                  <Icon className="w-5 h-5 flex-shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70" />
                   <AnimatePresence>
                     {!collapsed && (
                       <motion.span
-                        initial={{ opacity: 0, x: -10 }}
+                        initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -10 }}
+                        exit={{ opacity: 0, x: -8 }}
+                        transition={{ duration: 0.15 }}
                         className="whitespace-nowrap"
                       >
                         {item.label}
@@ -241,35 +239,25 @@ export function AdminSidebar() {
           </div>
         </nav>
 
-        {/* Collapse Button & Logout */}
-        <div className="p-3 border-t border-slate-700/50 space-y-2">
-          <Button
-            variant="ghost"
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex w-full justify-center text-slate-400 hover:text-white hover:bg-slate-700/50"
-          >
-            {collapsed ? (
-              <ChevronRight className="w-5 h-5" />
-            ) : (
-              <>
-                <ChevronLeft className="w-5 h-5 mr-2" />
-                <span className="text-sm">Colapsar</span>
-              </>
-            )}
-          </Button>
-
+        {/* Logout only */}
+        <div className="p-3 border-t border-sidebar-border/50">
           <Button
             variant="ghost"
             onClick={logout}
-            className="w-full justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            title={collapsed ? 'Cerrar sesión' : undefined}
+            className={cn(
+              'w-full text-red-500 hover:text-red-600 hover:bg-red-500/10',
+              collapsed ? 'justify-center px-0' : 'justify-start'
+            )}
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 flex-shrink-0" />
             <AnimatePresence>
               {!collapsed && (
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
                   className="ml-2 text-sm"
                 >
                   Cerrar sesión
@@ -280,19 +268,5 @@ export function AdminSidebar() {
         </div>
       </motion.aside>
     </>
-  );
-}
-
-// Mobile menu button for admin
-export function AdminMobileMenuButton({ onClick, isOpen }: { onClick: () => void; isOpen: boolean }) {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      className="lg:hidden text-slate-400 hover:text-white"
-    >
-      {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-    </Button>
   );
 }

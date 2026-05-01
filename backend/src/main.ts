@@ -23,7 +23,8 @@ async function bootstrap() {
   const trpcRouter = app.get(TrpcRouter).getRouter();
   const jwtService = app.get(JwtService);
   app.use('/api/trpc', createExpressMiddleware({ router: trpcRouter, createContext: (opts) => createContext(opts, jwtService) }));
-  await app.listen(4000);
+  const port = Number(process.env.PORT) || 4000;
+  await app.listen(port);
 
   // Ejecutar seed
   const dataSource = app.get(DataSource);
