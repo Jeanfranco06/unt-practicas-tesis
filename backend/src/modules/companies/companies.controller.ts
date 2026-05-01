@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -13,8 +13,8 @@ export class CompaniesController {
 
   @Get()
   @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR)
-  findAll() {
-    return this.companiesService.findAll();
+  findAll(@Query('incluirInactivas') incluirInactivas?: string) {
+    return this.companiesService.findAll(incluirInactivas === 'true');
   }
 
   @Get(':id')

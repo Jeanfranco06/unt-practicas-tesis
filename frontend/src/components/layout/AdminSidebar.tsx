@@ -16,6 +16,7 @@ import {
   Shield,
   X,
   Settings,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,9 +26,10 @@ import { useSidebar } from '@/components/layout/SidebarContext';
 const navItemsByRole: Record<UserRole, { href: string; label: string; icon: any }[]> = {
   Administrador: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/users', label: 'Usuarios', icon: Users },
     { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
     { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/students', label: 'Estudiantes', icon: Users },
+    { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
     { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
     { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
   ],

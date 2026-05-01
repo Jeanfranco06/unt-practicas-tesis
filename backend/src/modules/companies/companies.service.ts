@@ -8,8 +8,12 @@ import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 export class CompaniesService {
   constructor(@InjectRepository(Company) private companyRepo: Repository<Company>) {}
 
-  async findAll(): Promise<Company[]> {
-    return this.companyRepo.find({ relations: ['convenios'] });
+  async findAll(incluirInactivas = false): Promise<Company[]> {
+    const where: any = {};
+    if (!incluirInactivas) {
+      where.activo = true;
+    }
+    return this.companyRepo.find({ where, relations: ['convenios', 'ofertas'] });
   }
 
   async findById(id: number): Promise<Company> {
@@ -33,7 +37,10 @@ export class CompaniesService {
   }
 
   async remove(id: number): Promise<void> {
-    await this.companyRepo.delete(id);
+    const company = await this.findById(id);
+    // Soft delete: desactivar empresa
+    company.activo = false;
+    await this.companyRepo.save(company);
   }
 
   async getActiveAgreementsCount(): Promise<number> {

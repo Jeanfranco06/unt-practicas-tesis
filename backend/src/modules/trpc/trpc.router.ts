@@ -92,6 +92,18 @@ export class TrpcRouter {
         .mutation(async ({ input, ctx }) => {
           return this.internshipsService.apply({ ...input, estudianteId: ctx.user.sub });
         }),
+      getMyInternship: this.trpc.protectedProcedure.query(async ({ ctx }) => {
+        return this.internshipsService.getMyInternship(ctx.user.sub);
+      }),
+      addHoursTracking: this.trpc.protectedProcedure
+        .input(z.object({
+          practicaId: z.number(),
+          fechaTrabajada: z.string().min(1),
+          horas: z.number().min(1),
+          descripcionActividad: z.string().min(5),
+          evidenciaUrl: z.string().url().optional(),
+        }))
+        .mutation(async ({ input }) => this.internshipsService.addHoursTracking(input)),
     }),
     thesis: this.trpc.router({
       listProjects: this.trpc.protectedProcedure.query(async () => this.thesisService.findAllProjects()),

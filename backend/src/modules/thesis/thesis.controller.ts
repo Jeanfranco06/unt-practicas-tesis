@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { ThesisService } from './thesis.service';
 import { CreateThesisProjectDto, UpdateThesisProjectDto } from './dto/thesis-project.dto';
 import { CreateThesisAssignmentDto } from './dto/thesis-assignment.dto';
@@ -17,9 +17,9 @@ export class ThesisController {
   // Proyectos
   @Get('projects')
   @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ASESOR)
-  findAllProjects(@CurrentUser() user: any) {
+  findAllProjects(@Query('incluirInactivos') incluirInactivos?: string, @CurrentUser() user?: any) {
     // Asesores solo ven proyectos donde están asignados? Podría filtrarse, simplificamos
-    return this.service.findAllProjects();
+    return this.service.findAllProjects({ incluirInactivos: incluirInactivos === 'true' });
   }
 
   @Get('projects/student/:studentId')
@@ -32,16 +32,31 @@ export class ThesisController {
   }
 
   @Post('projects')
-  @Roles(RolUsuario.ESTUDIANTE)
+  @Roles(RolUsuario.ESTUDIANTE, RolUsuario.ADMIN, RolUsuario.COORDINADOR)
   createProject(@Body() dto: CreateThesisProjectDto, @CurrentUser() user: any) {
-    dto.estudianteId = user.id; // asumiendo relación
+    // Si es estudiante, usa su propio ID; si es admin/coordinador, usa el ID enviado en el DTO
+    if (user.rol === RolUsuario.ESTUDIANTE) {
+      dto.estudianteId = user.id;
+    }
     return this.service.createProject(dto);
   }
 
+  @Get('projects/:id')
+  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ASESOR, RolUsuario.ESTUDIANTE)
+  findProjectById(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.findProjectById(+id);
+  }
+
   @Patch('projects/:id')
-  @Roles(RolUsuario.ESTUDIANTE, RolUsuario.COORDINADOR)
+  @Roles(RolUsuario.ESTUDIANTE, RolUsuario.COORDINADOR, RolUsuario.ADMIN)
   updateProject(@Param('id') id: string, @Body() dto: UpdateThesisProjectDto) {
     return this.service.updateProject(+id, dto);
+  }
+
+  @Delete('projects/:id')
+  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR)
+  deleteProject(@Param('id') id: string) {
+    return this.service.deleteProject(+id);
   }
 
   // Asignaciones

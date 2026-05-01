@@ -30,4 +30,7 @@ export class Student {
 
   @Column({ name: 'creditos_aprobados', default: 0 })
   creditosAprobados: number;
+
+  @Column({ default: true })
+  activo: boolean;
 }

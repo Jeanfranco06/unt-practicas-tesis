@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Delete, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param, Query, UseGuards } from '@nestjs/common';
 import { InternshipsService } from './internships.service';
 import { CreateInternshipOfferDto, UpdateInternshipOfferDto } from './dto/internship-offer.dto';
 import { CreateApplicationDto, ReviewApplicationDto } from './dto/application.dto';
@@ -9,6 +9,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolUsuario } from '../users/entities/user.entity';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { OfertaEstado } from './entities/internship-offer.entity';
 
 @Controller('internships')
 @UseGuards(AuthGuard, RolesGuard)
@@ -18,12 +19,23 @@ export class InternshipsController {
   // Ofertas
   @Get('offers')
   @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ESTUDIANTE, RolUsuario.REPRESENTANTE_EMPRESA)
-  findAllOffers(@CurrentUser() user: any) {
-    if (user.rol === RolUsuario.REPRESENTANTE_EMPRESA) {
-      // asumiendo que se relaciona empresa por usuario, simplificado
-      return this.service.findAllOffers({ empresaId: user.empresaId }); // necesitarías relacion
+  findAllOffers(@CurrentUser() user: any, @Query('estado') estado?: string) {
+    if (user.rol === RolUsuario.ESTUDIANTE) {
+      // Estudiantes solo ven ofertas publicadas
+      return this.service.findAllOffers({ estado: OfertaEstado.PUBLICADA });
     }
-    return this.service.findAllOffers();
+    
+    const filters: any = {};
+    if (user.rol === RolUsuario.REPRESENTANTE_EMPRESA) {
+      filters.empresaId = user.empresaId;
+    }
+    // Si se pasa un estado específico, usarlo; 'todas' significa sin filtro de estado
+    if (estado && estado !== 'todas') {
+      filters.estado = estado as OfertaEstado;
+    }
+    // Si estado es 'todas' o undefined, no filtrar por estado (incluye canceladas)
+    
+    return this.service.findAllOffers(filters);
   }
 
   @Post('offers')

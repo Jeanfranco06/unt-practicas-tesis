@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { CreateStudentDto, UpdateStudentDto } from './dto/student.dto';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -13,8 +13,8 @@ export class StudentsController {
 
   @Get()
   @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR)
-  findAll() {
-    return this.studentsService.findAll();
+  findAll(@Query('incluirInactivos') incluirInactivos?: string) {
+    return this.studentsService.findAll(incluirInactivos === 'true');
   }
 
   @Get(':id')

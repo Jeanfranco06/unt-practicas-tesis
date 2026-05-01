@@ -51,13 +51,14 @@ export class ThesisService {
 
   private canTransition(from: ThesisEstado, to: ThesisEstado): boolean {
     const transitions: Record<ThesisEstado, ThesisEstado[]> = {
-      [ThesisEstado.EN_REGISTRO]: [ThesisEstado.PROPUESTO],
-      [ThesisEstado.PROPUESTO]: [ThesisEstado.APROBADO, ThesisEstado.DESAPROBADO],
+      [ThesisEstado.EN_REGISTRO]: [ThesisEstado.PROPUESTO, ThesisEstado.CANCELADO],
+      [ThesisEstado.PROPUESTO]: [ThesisEstado.APROBADO, ThesisEstado.DESAPROBADO, ThesisEstado.CANCELADO],
       [ThesisEstado.APROBADO]: [ThesisEstado.EN_DESARROLLO],
-      [ThesisEstado.EN_DESARROLLO]: [ThesisEstado.EN_REVISION],
-      [ThesisEstado.EN_REVISION]: [ThesisEstado.CULMINADO, ThesisEstado.EN_DESARROLLO],
+      [ThesisEstado.EN_DESARROLLO]: [ThesisEstado.EN_REVISION, ThesisEstado.CANCELADO],
+      [ThesisEstado.EN_REVISION]: [ThesisEstado.CULMINADO, ThesisEstado.EN_DESARROLLO, ThesisEstado.CANCELADO],
       [ThesisEstado.CULMINADO]: [],
       [ThesisEstado.DESAPROBADO]: [],
+      [ThesisEstado.CANCELADO]: [],
     };
     return transitions[from]?.includes(to) || false;
   }
@@ -72,11 +73,23 @@ export class ThesisService {
     return this.projectRepo.find({ where: { estudianteId: studentId }, relations: ['asignaciones'] });
   }
 
-  async findAllProjects(filters?: { estado?: ThesisEstado; area?: string }): Promise<ThesisProject[]> {
+  async findAllProjects(filters?: { estado?: ThesisEstado; area?: string; incluirInactivos?: boolean }): Promise<ThesisProject[]> {
     const where: any = {};
     if (filters?.estado) where.estado = filters.estado;
     if (filters?.area) where.areaConocimiento = filters.area;
-    return this.projectRepo.find({ where, relations: ['asignaciones'] });
+    // Por defecto, no mostrar proyectos inactivos (cancelados)
+    if (!filters?.incluirInactivos) {
+      where.activo = true;
+    }
+    return this.projectRepo.find({ where, relations: ['asignaciones', 'asignaciones.docente'] });
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    const project = await this.findProjectById(id);
+    // Soft delete: cambiar estado a cancelado y desactivar
+    project.estado = ThesisEstado.CANCELADO;
+    project.activo = false;
+    await this.projectRepo.save(project);
   }
 
   // Asignaciones (asesor/jurado)

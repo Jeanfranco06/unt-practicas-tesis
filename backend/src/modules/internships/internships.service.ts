@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { InternshipOffer, OfertaEstado } from './entities/internship-offer.entity';
 import { InternshipApplication, ApplicationEstado } from './entities/internship-application.entity';
 import { Internship, InternshipEstado } from './entities/internship.entity';
@@ -48,9 +48,28 @@ export class InternshipsService {
     return this.findOfferById(id);
   }
 
-  async deleteOffer(id: number): Promise<void> {
+  async deleteOffer(id: number): Promise<{ success: boolean; message: string }> {
     const offer = await this.findOfferById(id);
-    await this.offerRepo.remove(offer);
+
+    // Verificar si hay aplicaciones aprobadas para esta oferta específica
+    const activeApplications = await this.appRepo.find({
+      where: {
+        ofertaId: id,
+        estado: ApplicationEstado.APROBADO,
+      },
+    });
+
+    if (activeApplications.length > 0) {
+      throw new BadRequestException(
+        `No se puede cancelar esta oferta: hay ${activeApplications.length} estudiante(s) con aplicación(es) aprobada(s)`,
+      );
+    }
+
+    // Soft delete: cambiar estado a CANCELADA
+    offer.estado = OfertaEstado.CANCELADA;
+    await this.offerRepo.save(offer);
+    
+    return { success: true, message: 'Oferta cancelada exitosamente' };
   }
 
   async publishOffer(id: number): Promise<InternshipOffer> {
@@ -63,14 +82,31 @@ export class InternshipsService {
   async findOfferById(id: number): Promise<InternshipOffer> {
     const offer = await this.offerRepo.findOne({ where: { id }, relations: ['empresa', 'convenio'] });
     if (!offer) throw new NotFoundException('Oferta no encontrada');
+    
+    // Calcular estado 'cerrada' dinámicamente si la oferta publicada venció
+    const now = new Date();
+    if (offer.estado === OfertaEstado.PUBLICADA && now > new Date(offer.fechaFinPostulacion)) {
+      return { ...offer, estado: OfertaEstado.CERRADA as OfertaEstado };
+    }
     return offer;
   }
 
   async findAllOffers(filters?: { empresaId?: number; estado?: OfertaEstado }): Promise<InternshipOffer[]> {
     const where: any = {};
     if (filters?.empresaId) where.empresaId = filters.empresaId;
-    if (filters?.estado) where.estado = filters.estado;
-    return this.offerRepo.find({ where, relations: ['empresa'] });
+    if (filters?.estado) {
+      where.estado = filters.estado;
+    }
+    const offers = await this.offerRepo.find({ where, relations: ['empresa'] });
+    
+    // Calcular estado 'cerrada' dinámicamente para ofertas publicadas cuya vigencia terminó
+    const now = new Date();
+    return offers.map(offer => {
+      if (offer.estado === OfertaEstado.PUBLICADA && now > new Date(offer.fechaFinPostulacion)) {
+        return { ...offer, estado: OfertaEstado.CERRADA as OfertaEstado };
+      }
+      return offer;
+    });
   }
 
   // Postulaciones
@@ -213,9 +249,25 @@ export class InternshipsService {
   }
   
   async getMyInternship(estudianteId: number): Promise<Internship | null> {
-    return this.internshipRepo.findOne({
-      where: { estudianteId, estado: InternshipEstado.ACTIVA },
-      relations: ['empresa', 'asesorAcademico'],
-    });
+    const internship = await this.internshipRepo.createQueryBuilder('i')
+      .leftJoinAndSelect('i.postulacion', 'p')
+      .leftJoinAndSelect('p.oferta', 'o')
+      .leftJoinAndSelect('o.empresa', 'e')
+      .leftJoinAndSelect('i.asesorAcademico', 'aa')
+      .where('i.estudianteId = :estudianteId', { estudianteId })
+      .andWhere('i.estado = :estado', { estado: InternshipEstado.ACTIVA })
+      .orderBy('i.id', 'DESC')
+      .getOne();
+
+    if (internship) {
+      if (!internship.empresaId && internship.postulacion?.oferta?.empresaId) {
+        internship.empresaId = internship.postulacion.oferta.empresaId;
+        await this.internshipRepo.save(internship);
+      }
+      if (internship.postulacion?.oferta?.empresa) {
+        internship.empresa = internship.postulacion.oferta.empresa;
+      }
+    }
+    return internship;
   }
 }

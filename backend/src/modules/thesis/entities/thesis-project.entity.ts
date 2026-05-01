@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { ThesisAssignment } from './thesis-assignment.entity';
 import { Deliverable } from './deliverable.entity';
@@ -12,6 +12,7 @@ export enum ThesisEstado {
   EN_REVISION = 'en_revision',
   CULMINADO = 'culminado',
   DESAPROBADO = 'desaprobado',
+  CANCELADO = 'cancelado',
 }
 
 @Entity('proyecto_tesis')
@@ -21,6 +22,13 @@ export class ThesisProject {
 
   @Column({ name: 'estudiante_id' })
   estudianteId: number;
+
+  @ManyToOne(() => Student)
+  @JoinColumn({ name: 'estudiante_id' })
+  estudiante: Student;
+
+  @Column({ default: true })
+  activo: boolean;
 
   @Column({ length: 200 })
   titulo: string;

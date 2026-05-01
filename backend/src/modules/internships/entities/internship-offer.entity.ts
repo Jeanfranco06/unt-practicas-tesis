@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { Agreement } from '../../agreements/entities/agreement.entity';
 
@@ -18,6 +18,7 @@ export class InternshipOffer {
   empresaId: number;
 
   @ManyToOne(() => Company)
+  @JoinColumn({ name: 'empresa_id' })
   empresa: Company;
 
   @Column({ name: 'convenio_id', nullable: true })

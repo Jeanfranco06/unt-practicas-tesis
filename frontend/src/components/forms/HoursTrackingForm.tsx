@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 
 const schema = z.object({
@@ -43,17 +44,17 @@ export function HoursTrackingForm({ internshipId }: { internshipId: number }) {
           <div>
             <Label>Fecha</Label>
             <Input type="date" {...register('fechaTrabajada')} />
-            {errors.fechaTrabajada && <p className="text-red-500">{errors.fechaTrabajada.message}</p>}
+            {errors.fechaTrabajada && <p className="text-red-500">{String(errors.fechaTrabajada.message)}</p>}
           </div>
           <div>
             <Label>Horas</Label>
             <Input type="number" {...register('horas', { valueAsNumber: true })} />
-            {errors.horas && <p className="text-red-500">{errors.horas.message}</p>}
+            {errors.horas && <p className="text-red-500">{String(errors.horas.message)}</p>}
           </div>
           <div>
             <Label>Descripción</Label>
             <Textarea {...register('descripcionActividad')} />
-            {errors.descripcionActividad && <p className="text-red-500">{errors.descripcionActividad.message}</p>}
+            {errors.descripcionActividad && <p className="text-red-500">{String(errors.descripcionActividad.message)}</p>}
           </div>
           <div>
             <Label>URL Evidencia (opcional)</Label>

@@ -46,23 +46,23 @@ export default function EditInternshipPage() {
     }
   };
 
-  if (isLoading) return <div className="text-slate-400">Cargando oferta...</div>;
+  if (isLoading) return <div className="text-muted-foreground">Cargando oferta...</div>;
 
   if (error) {
     return (
-      <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400">
+      <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-xl text-red-600 dark:text-red-400">
         <p>Error al cargar oferta: {error}</p>
       </div>
     );
   }
 
-  if (!offer) return <div className="text-slate-400">Oferta no encontrada</div>;
+  if (!offer) return <div className="text-muted-foreground">Oferta no encontrada</div>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">Editar Oferta</h1>
-        <p className="text-slate-400 text-sm mt-1">Actualiza la información de la oferta de práctica</p>
+        <h1 className="text-2xl font-bold text-foreground">Editar Oferta</h1>
+        <p className="text-muted-foreground text-sm mt-1">Actualiza la información de la oferta de práctica</p>
       </div>
       <OfferForm
         title="Editar Oferta"

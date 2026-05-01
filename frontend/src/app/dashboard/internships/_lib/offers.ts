@@ -25,10 +25,10 @@ export interface Company {
 }
 
 export const estadoColors: Record<string, string> = {
-  BORRADOR: 'bg-slate-500/20 text-slate-400',
-  PUBLICADA: 'bg-blue-500/20 text-blue-400',
-  CERRADA: 'bg-amber-500/20 text-amber-400',
-  CANCELADA: 'bg-red-500/20 text-red-400',
+  borrador: 'bg-muted text-muted-foreground',
+  publicada: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+  cerrada: 'bg-amber-500/20 text-amber-600 dark:text-amber-400',
+  cancelada: 'bg-red-500/20 text-red-600 dark:text-red-400',
 };
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -53,11 +53,35 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   }
 
   if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || 'Error al procesar la solicitud');
+    const text = await res.text();
+    let errorMessage = text || 'Error al procesar la solicitud';
+    
+    // Intentar parsear como JSON para extraer el mensaje
+    try {
+      const json = JSON.parse(text);
+      if (json.message) {
+        errorMessage = json.message;
+      }
+    } catch {
+      // Si no es JSON, usar el texto como está
+    }
+    
+    throw new Error(errorMessage);
   }
 
-  return res.json();
+  // Handle empty responses (like 204 No Content or void returns)
+  const contentType = res.headers.get('content-type');
+  const text = await res.text();
+  
+  if (!text || text.trim() === '') {
+    return { success: true };
+  }
+
+  if (contentType?.includes('application/json')) {
+    return JSON.parse(text);
+  }
+
+  return { success: true, data: text };
 }
 
 export function normalizeOfferFormData(data: OfferFormData) {
@@ -68,6 +92,7 @@ export function normalizeOfferFormData(data: OfferFormData) {
     fechaFinPostulacion: new Date(data.fechaFinPostulacion).toISOString(),
     fechaInicioPractica: new Date(data.fechaInicioPractica).toISOString(),
     fechaFinPractica: new Date(data.fechaFinPractica).toISOString(),
+    estado: data.estado || 'publicada',
   };
 }
 
@@ -77,6 +102,7 @@ export interface OfferFormData {
   requisitos: string;
   empresaId: number;
   cupos: number | '';
+  estado: string;
   fechaInicioPostulacion: string;
   fechaFinPostulacion: string;
   fechaInicioPractica: string;

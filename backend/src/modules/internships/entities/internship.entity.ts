@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, JoinColumn } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
@@ -36,6 +36,7 @@ export class Internship {
   empresaId: number;
 
   @ManyToOne(() => Company)
+  @JoinColumn({ name: 'empresa_id' })
   empresa: Company;
 
   @Column({ name: 'asesor_academico_id', type: 'int', nullable: true })

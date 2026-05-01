@@ -32,6 +32,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
     requisitos: '',
     empresaId: 0,
     cupos: 1,
+    estado: 'publicada',
     fechaInicioPostulacion: '',
     fechaFinPostulacion: '',
     fechaInicioPractica: '',
@@ -69,6 +70,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
         requisitos: initialData.requisitos || '',
         empresaId: initialData.empresaId || 0,
         cupos: initialData.cupos || 1,
+        estado: initialData.estado || 'borrador',
         fechaInicioPostulacion: initialData.fechaInicioPostulacion?.slice(0, 10) || '',
         fechaFinPostulacion: initialData.fechaFinPostulacion?.slice(0, 10) || '',
         fechaInicioPractica: initialData.fechaInicioPractica?.slice(0, 10) || '',
@@ -102,10 +104,10 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
       variants={itemVariants}
       initial="hidden"
       animate="visible"
-      className="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden"
+      className="bg-card border border-border rounded-xl shadow-sm overflow-hidden"
     >
-      <div className="flex items-center justify-between p-6 border-b border-slate-800">
-        <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
+      <div className="flex items-center justify-between p-6 border-b border-border">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
       </div>
       <form onSubmit={handleSubmit} className="p-6 space-y-4">
         <div className="grid gap-2">
@@ -114,7 +116,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
             id="titulo"
             value={formData.titulo}
             onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-            className="bg-slate-800 border-slate-700 text-slate-200"
+            className="bg-background border-border text-foreground"
             required
           />
         </div>
@@ -124,7 +126,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
             id="descripcion"
             value={formData.descripcion}
             onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-            className="bg-slate-800 border-slate-700 text-slate-200 rounded-md p-2 min-h-[100px]"
+            className="bg-background border border-border text-foreground rounded-md p-2 min-h-[100px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="grid gap-2">
@@ -133,7 +135,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
             id="requisitos"
             value={formData.requisitos}
             onChange={(e) => setFormData({ ...formData, requisitos: e.target.value })}
-            className="bg-slate-800 border-slate-700 text-slate-200 rounded-md p-2 min-h-[100px]"
+            className="bg-background border border-border text-foreground rounded-md p-2 min-h-[100px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -147,7 +149,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
               onChange={(e) => {
                 setFormData({ ...formData, cupos: e.target.value === '' ? '' : Number(e.target.value) });
               }}
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              className="bg-background border-border text-foreground"
               required
             />
           </div>
@@ -157,7 +159,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
               id="empresaId"
               value={formData.empresaId ? String(formData.empresaId) : ''}
               onChange={(e) => setFormData({ ...formData, empresaId: Number(e.target.value) })}
-              className="flex h-12 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-12 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               disabled={companies.length === 0}
               required
             >
@@ -171,7 +173,30 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
                 ))
               )}
             </select>
-            {companiesError && <p className="text-sm text-red-400">{companiesError}</p>}
+            {companiesError && <p className="text-sm text-red-600 dark:text-red-400">{companiesError}</p>}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="estado">Estado</Label>
+            <select
+              id="estado"
+              value={formData.estado}
+              onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+              disabled={initialData?.estado === 'cerrada'}
+              className="flex h-12 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              required
+            >
+              <option value="borrador">Borrador</option>
+              <option value="publicada">Publicada</option>
+              {initialData?.estado === 'cerrada' && (
+                <option value="cerrada" disabled>Cerrada (vigencia terminada)</option>
+              )}
+              <option value="cancelada">Cancelada</option>
+            </select>
+            {initialData?.estado === 'cerrada' && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Esta oferta está cerrada porque el período de postulación ha finalizado. No se puede cambiar el estado.
+              </p>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -182,7 +207,8 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
               type="date"
               value={formData.fechaInicioPostulacion}
               onChange={(e) => setFormData({ ...formData, fechaInicioPostulacion: e.target.value })}
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              disabled={initialData?.estado === 'cerrada'}
+              className="bg-background border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               required
             />
           </div>
@@ -193,7 +219,8 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
               type="date"
               value={formData.fechaFinPostulacion}
               onChange={(e) => setFormData({ ...formData, fechaFinPostulacion: e.target.value })}
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              disabled={initialData?.estado === 'cerrada'}
+              className="bg-background border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               required
             />
           </div>
@@ -206,7 +233,7 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
               type="date"
               value={formData.fechaInicioPractica}
               onChange={(e) => setFormData({ ...formData, fechaInicioPractica: e.target.value })}
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              className="bg-background border-border text-foreground"
               required
             />
           </div>
@@ -217,13 +244,13 @@ export function OfferForm({ initialData, submitLabel, title, onCancel, onSubmit 
               type="date"
               value={formData.fechaFinPractica}
               onChange={(e) => setFormData({ ...formData, fechaFinPractica: e.target.value })}
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              className="bg-background border-border text-foreground"
               required
             />
           </div>
         </div>
         <div className="flex gap-3 justify-end pt-4">
-          <Button type="button" variant="outline" onClick={onCancel} className="border-slate-700 text-slate-300 hover:bg-slate-800">
+          <Button type="button" variant="outline" onClick={onCancel} className="border-border text-foreground hover:bg-muted">
             Cancelar
           </Button>
           <Button type="submit" disabled={isSubmitting} className="bg-blue-500 hover:bg-blue-600 text-white">

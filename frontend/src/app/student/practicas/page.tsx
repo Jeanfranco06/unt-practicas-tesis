@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +24,7 @@ import { StatusBadge } from '@/components/student/StatusBadge';
 import { EmptyState } from '@/components/student/EmptyState';
 import { CardSkeleton } from '@/components/student/LoadingState';
 import Link from 'next/link';
+import { trpc } from '@/lib/trpc/react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -38,7 +39,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24 },
+    transition: { type: 'spring' as const, stiffness: 300, damping: 24 },
   },
 };
 
@@ -113,13 +114,13 @@ export default function PracticasPage() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mis Prácticas</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Mis Prácticas</h1>
+          <p className="text-muted-foreground mt-1">
             Gestiona tus prácticas preprofesionales
           </p>
         </div>
         <Link href="/student/practicas/nueva">
-          <Button className="bg-primary-600 hover:bg-primary-700">
+          <Button>
             <Plus className="w-4 h-4 mr-2" />
             Nueva solicitud
           </Button>
@@ -138,11 +139,11 @@ export default function PracticasPage() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm"
+            className="p-4 bg-card rounded-xl border border-border shadow-soft"
           >
-            <p className="text-sm text-slate-500">{stat.label}</p>
+            <p className="text-sm text-muted-foreground">{stat.label}</p>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-lg font-semibold text-slate-900">{stat.value}</p>
+              <p className="text-lg font-semibold text-foreground">{stat.value}</p>
               <StatusBadge variant={stat.status} size="sm">
                 {stat.status === 'active' ? 'En curso' : 'Completado'}
               </StatusBadge>
@@ -154,13 +155,13 @@ export default function PracticasPage() {
       {/* Filters & Search */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar prácticas..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="pl-10 bg-white"
+            className="pl-10 bg-card"
           />
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
@@ -170,7 +171,6 @@ export default function PracticasPage() {
               variant={filtroActivo === filtro ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFiltroActivo(filtro)}
-              className={filtroActivo === filtro ? 'bg-primary-600' : ''}
             >
               {filtro}
             </Button>
@@ -190,18 +190,18 @@ export default function PracticasPage() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ delay: index * 0.1 }}
                 whileHover={{ y: -4 }}
-                className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
+                className="bg-card rounded-2xl border border-border shadow-soft hover:shadow-elevated transition-all duration-300 overflow-hidden"
               >
                 {/* Card Header */}
-                <div className="p-6 border-b border-slate-100">
+                <div className="p-6 border-b border-border">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                      <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
                         <Building2 className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-slate-900">{practica.empresa}</h3>
-                        <p className="text-sm text-slate-500">{practica.cargo}</p>
+                        <h3 className="font-semibold text-foreground">{practica.empresa}</h3>
+                        <p className="text-sm text-muted-foreground">{practica.cargo}</p>
                       </div>
                     </div>
                     <StatusBadge
@@ -214,24 +214,22 @@ export default function PracticasPage() {
                 </div>
 
                 {/* Progress */}
-                <div className="px-6 py-4 bg-slate-50">
+                <div className="px-6 py-4 bg-muted/50">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-medium text-foreground">
                       Progreso
                     </span>
-                    <span className="text-sm font-semibold text-slate-900">
+                    <span className="text-sm font-semibold text-foreground">
                       {practica.progreso}%
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${practica.progreso}%` }}
                       transition={{ duration: 0.8, delay: 0.2 }}
                       className={`h-full rounded-full ${
-                        practica.progreso === 100
-                          ? 'bg-emerald-500'
-                          : 'bg-gradient-to-r from-primary-500 to-purple-500'
+                        practica.progreso === 100 ? 'bg-emerald-500' : 'bg-primary'
                       }`}
                     />
                   </div>
@@ -239,8 +237,8 @@ export default function PracticasPage() {
 
                 {/* Details */}
                 <div className="p-6 grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Calendar className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4 text-muted-foreground/60" />
                     <span>
                       {new Date(practica.fechaInicio).toLocaleDateString('es-ES', {
                         month: 'short',
@@ -253,41 +251,41 @@ export default function PracticasPage() {
                       })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Clock className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 text-muted-foreground/60" />
                     <span>
                       {practica.horas}/{practica.horasTotales}h
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <FileText className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="w-4 h-4 text-muted-foreground/60" />
                     <span>
                       {practica.documentos}/{practica.documentosTotales} docs
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Briefcase className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Briefcase className="w-4 h-4 text-muted-foreground/60" />
                     <span>{practica.supervisor}</span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
                   <Link href={`/student/practicas/${practica.id}`}>
-                    <Button variant="ghost" size="sm" className="text-primary-600">
+                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
                       Ver detalles
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Eye className="w-4 h-4 text-slate-400" />
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                      <Eye className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Edit className="w-4 h-4 text-slate-400" />
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                      <Edit className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Download className="w-4 h-4 text-slate-400" />
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                      <Download className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
@@ -309,3 +307,4 @@ export default function PracticasPage() {
     </motion.div>
   );
 }
+

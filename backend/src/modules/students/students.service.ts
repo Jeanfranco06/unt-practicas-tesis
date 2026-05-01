@@ -12,8 +12,12 @@ export class StudentsService {
     private usersService: UsersService,
   ) {}
 
-  async findAll(): Promise<Student[]> {
-    return this.studentRepo.find({ relations: ['usuario'] });
+  async findAll(incluirInactivos = false): Promise<Student[]> {
+    const where: any = {};
+    if (!incluirInactivos) {
+      where.activo = true;
+    }
+    return this.studentRepo.find({ where, relations: ['usuario'] });
   }
 
   async findById(id: number): Promise<Student> {
@@ -38,6 +42,9 @@ export class StudentsService {
   }
 
   async remove(id: number): Promise<void> {
-    await this.studentRepo.delete(id);
+    const student = await this.findById(id);
+    // Soft delete: desactivar estudiante
+    student.activo = false;
+    await this.studentRepo.save(student);
   }
 }

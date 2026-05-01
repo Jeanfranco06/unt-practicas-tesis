@@ -1,6 +1,9 @@
 {
-  "/dashboard/internships/page": "app/dashboard/internships/page.js",
+  "/student/dashboard/page": "app/student/dashboard/page.js",
+  "/student/practicas/page": "app/student/practicas/page.js",
+  "/student/tesis/page": "app/student/tesis/page.js",
+  "/student/perfil/page": "app/student/perfil/page.js",
   "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/dashboard/internships/[id]/page": "app/dashboard/internships/[id]/page.js",
-  "/dashboard/internships/new/page": "app/dashboard/internships/new/page.js"
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js"
 }

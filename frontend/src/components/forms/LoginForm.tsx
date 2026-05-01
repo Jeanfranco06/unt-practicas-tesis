@@ -24,7 +24,7 @@ export function LoginForm() {
   });
 
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       document.cookie = `accessToken=${data.accessToken}; path=/`;

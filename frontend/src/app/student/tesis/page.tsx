@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +24,7 @@ import { StatusBadge } from '@/components/student/StatusBadge';
 import { EmptyState } from '@/components/student/EmptyState';
 import { CardSkeleton } from '@/components/student/LoadingState';
 import Link from 'next/link';
+import { trpc } from '@/lib/trpc/react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -38,7 +39,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24 },
+    transition: { type: 'spring' as const, stiffness: 300, damping: 24 },
   },
 };
 
@@ -137,8 +138,8 @@ export default function TesisPage() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mi Tesis</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Mi Tesis</h1>
+          <p className="text-muted-foreground mt-1">
             Gestiona tu trabajo de investigación
           </p>
         </div>
@@ -150,7 +151,7 @@ export default function TesisPage() {
             </Button>
           </Link>
           <Link href="/student/tesis/editar">
-            <Button className="bg-primary-600 hover:bg-primary-700">
+            <Button>
               <Plus className="w-4 h-4 mr-2" />
               Editar tesis
             </Button>
@@ -160,29 +161,29 @@ export default function TesisPage() {
 
       {/* Main Tesis Card */}
       <motion.div variants={itemVariants}>
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
+        <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
+          <div className="p-6 border-b border-border">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <BookOpen className="w-5 h-5 text-primary-600" />
-                  <span className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                  <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                     {tesisData.actual.tema}
                   </span>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 leading-tight">
+                <h2 className="text-xl font-bold text-foreground leading-tight">
                   {tesisData.actual.titulo}
                 </h2>
                 <div className="flex flex-wrap items-center gap-4 mt-4">
                   <div className="flex items-center gap-2">
-                    <UserCircle className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm text-slate-600">
+                    <UserCircle className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
                       Asesor: {tesisData.actual.asesor}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <UserCircle className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm text-slate-600">
+                    <UserCircle className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
                       Co-asesor: {tesisData.actual.coAsesor}
                     </span>
                   </div>
@@ -195,27 +196,27 @@ export default function TesisPage() {
           </div>
 
           {/* Progress */}
-          <div className="px-6 py-4 bg-slate-50">
+          <div className="px-6 py-4 bg-muted/50">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-700">
+              <span className="text-sm font-medium text-foreground">
                 Progreso general
               </span>
-              <span className="text-sm font-semibold text-slate-900">
+              <span className="text-sm font-semibold text-foreground">
                 {tesisData.actual.progreso}%
               </span>
             </div>
-            <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${tesisData.actual.progreso}%` }}
                 transition={{ duration: 1 }}
-                className="h-full bg-gradient-to-r from-primary-500 via-purple-500 to-pink-500 rounded-full"
+                className="h-full bg-primary rounded-full"
               />
             </div>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-border">
             {[
               {
                 label: 'Fecha inicio',
@@ -241,12 +242,12 @@ export default function TesisPage() {
               const Icon = stat.icon;
               return (
                 <div key={stat.label} className="p-4 flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg">
-                    <Icon className="w-4 h-4 text-slate-500" />
+                  <div className="p-2 bg-muted rounded-lg">
+                    <Icon className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">{stat.label}</p>
-                    <p className="text-sm font-semibold text-slate-900">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <p className="text-sm font-semibold text-foreground">{stat.value}</p>
                   </div>
                 </div>
               );
@@ -258,7 +259,7 @@ export default function TesisPage() {
       {/* Tabs Content */}
       <motion.div variants={itemVariants}>
         <Tabs defaultValue="actividad" className="space-y-4">
-          <TabsList className="bg-white border border-slate-200">
+          <TabsList className="bg-card border border-border">
             <TabsTrigger value="actividad">Actividad reciente</TabsTrigger>
             <TabsTrigger value="historial">Historial de versiones</TabsTrigger>
             <TabsTrigger value="comentarios">Comentarios</TabsTrigger>
@@ -271,28 +272,28 @@ export default function TesisPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-100 hover:shadow-sm transition-shadow"
+                className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border hover:shadow-soft transition-shadow"
               >
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center ${
                     actividad.tipo === 'revision'
-                      ? 'bg-emerald-100'
+                      ? 'bg-emerald-100 dark:bg-emerald-500/20'
                       : actividad.tipo === 'comentario'
-                      ? 'bg-blue-100'
-                      : 'bg-purple-100'
+                      ? 'bg-blue-100 dark:bg-blue-500/20'
+                      : 'bg-purple-100 dark:bg-purple-500/20'
                   }`}
                 >
                   {actividad.tipo === 'revision' ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   ) : actividad.tipo === 'comentario' ? (
-                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   ) : (
-                    <FileText className="w-5 h-5 text-purple-600" />
+                    <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">{actividad.titulo}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm font-medium text-foreground">{actividad.titulo}</p>
+                  <p className="text-xs text-muted-foreground">
                     {actividad.autor} • {actividad.fecha}
                   </p>
                 </div>
@@ -307,16 +308,16 @@ export default function TesisPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-100"
+                className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border"
               >
-                <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <span className="text-sm font-bold text-slate-600">
+                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+                  <span className="text-sm font-bold text-muted-foreground">
                     {version.version}
                   </span>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-foreground">
                       Versión {version.version}
                     </p>
                     <StatusBadge
@@ -326,11 +327,11 @@ export default function TesisPage() {
                       {version.estado === 'reviewed' ? 'Revisado' : 'Aprobado'}
                     </StatusBadge>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {new Date(version.fecha).toLocaleDateString('es-ES')} •{' '}
                     {version.comentarios} comentarios
                   </p>
-                  <p className="text-xs text-slate-600 mt-1">{version.cambios}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{version.cambios}</p>
                 </div>
                 <Button variant="ghost" size="sm">
                   <FileText className="w-4 h-4 mr-1" />
@@ -341,9 +342,9 @@ export default function TesisPage() {
           </TabsContent>
 
           <TabsContent value="comentarios">
-            <div className="p-8 bg-white rounded-xl border border-slate-100 text-center">
-              <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">No hay comentarios sin resolver</p>
+            <div className="p-8 bg-card rounded-xl border border-border text-center">
+              <MessageSquare className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+              <p className="text-muted-foreground">No hay comentarios sin resolver</p>
             </div>
           </TabsContent>
         </Tabs>
@@ -351,21 +352,21 @@ export default function TesisPage() {
 
       {/* Keywords & Summary */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-3">Resumen</h3>
-          <p className="text-sm text-slate-600 leading-relaxed">
+        <div className="lg:col-span-2 p-6 bg-card rounded-2xl border border-border shadow-soft">
+          <h3 className="text-lg font-semibold text-foreground mb-3">Resumen</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             {tesisData.actual.resumen}
           </p>
         </div>
-        <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-3">
+        <div className="p-6 bg-card rounded-2xl border border-border shadow-soft">
+          <h3 className="text-lg font-semibold text-foreground mb-3">
             Palabras clave
           </h3>
           <div className="flex flex-wrap gap-2">
             {tesisData.actual.palabrasClave.map((palabra) => (
               <span
                 key={palabra}
-                className="px-3 py-1 bg-slate-100 text-slate-600 text-sm rounded-full"
+                className="px-3 py-1 bg-muted text-muted-foreground text-sm rounded-full"
               >
                 {palabra}
               </span>
@@ -376,3 +377,4 @@ export default function TesisPage() {
     </motion.div>
   );
 }
+
