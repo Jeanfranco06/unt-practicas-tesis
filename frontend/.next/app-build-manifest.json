@@ -11,20 +11,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(auth)/layout.js"
     ],
-    "/(auth)/register/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/register/page.js"
-    ],
     "/(auth)/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(auth)/login/page.js"
-    ],
-    "/(auth)/forgot-password/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/forgot-password/page.js"
     ],
     "/dashboard/layout": [
       "static/chunks/webpack.js",
@@ -36,20 +26,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/page.js"
     ],
-    "/dashboard/internships/page": [
+    "/dashboard/company/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/internships/page.js"
+      "static/chunks/app/dashboard/company/page.js"
     ],
-    "/dashboard/thesis/page": [
+    "/dashboard/notifications/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/thesis/page.js"
+      "static/chunks/app/dashboard/notifications/page.js"
     ],
-    "/dashboard/reports/page": [
+    "/dashboard/coordinator/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/reports/page.js"
+      "static/chunks/app/dashboard/coordinator/page.js"
     ],
     "/student/layout": [
       "static/chunks/webpack.js",
@@ -61,25 +51,35 @@
       "static/chunks/main-app.js",
       "static/chunks/app/student/dashboard/page.js"
     ],
-    "/student/practicas/page": [
+    "/dashboard/coordinator/applications/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/student/practicas/page.js"
+      "static/chunks/app/dashboard/coordinator/applications/page.js"
     ],
-    "/student/tesis/page": [
+    "/dashboard/advisor/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/student/tesis/page.js"
+      "static/chunks/app/dashboard/advisor/layout.js"
     ],
-    "/student/perfil/page": [
+    "/dashboard/advisor/internships/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/student/perfil/page.js"
+      "static/chunks/app/dashboard/advisor/internships/layout.js"
     ],
-    "/_not-found/page": [
+    "/dashboard/advisor/internships/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/chunks/app/dashboard/advisor/internships/page.js"
+    ],
+    "/dashboard/advisor/thesis/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/advisor/thesis/layout.js"
+    ],
+    "/dashboard/advisor/thesis/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/advisor/thesis/page.js"
     ]
   }
 }

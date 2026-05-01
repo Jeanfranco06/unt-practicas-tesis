@@ -1,9 +1,7 @@
 {
+  "/dashboard/coordinator/applications/page": "app/dashboard/coordinator/applications/page.js",
   "/student/dashboard/page": "app/student/dashboard/page.js",
-  "/student/practicas/page": "app/student/practicas/page.js",
-  "/student/tesis/page": "app/student/tesis/page.js",
-  "/student/perfil/page": "app/student/perfil/page.js",
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(auth)/register/page": "app/(auth)/register/page.js",
-  "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js"
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/company/page": "app/dashboard/company/page.js",
+  "/dashboard/coordinator/page": "app/dashboard/coordinator/page.js"
 }
