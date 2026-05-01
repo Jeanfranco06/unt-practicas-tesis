@@ -15,6 +15,11 @@ export enum InternshipEstado {
   CANCELADA = 'cancelada',
 }
 
+export enum PracticaOrigen {
+  INSTITUCIONAL = 'institucional',
+  EXTERNA = 'externa',
+}
+
 @Entity('practica')
 export class Internship {
   @PrimaryGeneratedColumn()
@@ -47,6 +52,9 @@ export class Internship {
 
   @Column({ name: 'asesor_empresa_nombre', length: 200 })
   asesorEmpresaNombre: string;
+
+  @Column({ type: 'enum', enum: PracticaOrigen, default: PracticaOrigen.INSTITUCIONAL })
+  origen: PracticaOrigen;
 
   @Column({ name: 'horas_totales_requeridas', type: 'int' })
   horasTotalesRequeridas: number;
