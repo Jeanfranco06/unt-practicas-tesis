@@ -54,7 +54,7 @@ UTF8-ENCODING-FIX.md
 
 # Database scripts (temporary)
 create-db.sql
-*.sql
+.sql
 drop-*.sql
 fix-*.sql
 

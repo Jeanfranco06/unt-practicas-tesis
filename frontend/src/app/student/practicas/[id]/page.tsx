@@ -83,6 +83,10 @@ interface Practica {
   tipo?: 'practica' | 'postulacion';
   estadoPostulacion?: string;
   fechaPostulacion?: string;
+  // Calculated fields for future practice detection
+  _calculatedState?: 'starting_soon' | string;
+  _daysUntilStart?: number;
+  _hasStarted?: boolean;
 }
 
 export default function PracticaDetailPage() {
@@ -156,6 +160,12 @@ export default function PracticaDetailPage() {
         const data = await fetchWithAuth(`${API_URL}/api/internships/my-internship`);
         
         if (data && !data.message) {
+          // Check if internship has started or is in the future
+          const startDate = data.fechaInicio || data.oferta?.fechaInicioPractica;
+          const hasStarted = startDate ? new Date(startDate) <= new Date() : true;
+          const daysUntilStart = startDate ? 
+            Math.ceil((new Date(startDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+          
           const practiceData: Practica = {
             id: data.id,
             empresa: data.empresa?.razonSocial || data.nombreEmpresaExterna || 'Empresa no especificada',
@@ -188,6 +198,10 @@ export default function PracticaDetailPage() {
               comentarioAsesor: r.comentarioAsesor,
             })) || [],
             tipo: 'practica',
+            // Calculated fields
+            _calculatedState: !hasStarted ? 'starting_soon' : data.estado,
+            _daysUntilStart: daysUntilStart,
+            _hasStarted: hasStarted,
           };
           setPractica(practiceData);
         } else {
@@ -372,6 +386,16 @@ export default function PracticaDetailPage() {
               </span>
             </div>
           )}
+          {practica.tipo === 'practica' && practica._calculatedState === 'starting_soon' && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
+                Práctica Programada
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Inicia en {practica._daysUntilStart} días
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {practica.tipo === 'practica' && (
@@ -453,18 +477,38 @@ export default function PracticaDetailPage() {
           {/* Progress Card */}
           <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Progreso de la práctica</h3>
-              <StatusBadge variant={practica.estado === 'activa' ? 'active' : 'completed'}>
-                {practica.estado === 'activa' ? 'En curso' : 'Finalizada'}
+              <h3 className="font-semibold text-foreground">
+                {practica._calculatedState === 'starting_soon' ? 'Inicio de práctica' : 'Progreso de la práctica'}
+              </h3>
+              <StatusBadge 
+                variant={practica._calculatedState === 'starting_soon' ? 'pending' : practica.estado === 'activa' ? 'active' : 'completed'}
+                pulse={practica.estado === 'activa' && practica._hasStarted !== false}
+              >
+                {practica._calculatedState === 'starting_soon' 
+                  ? `Por iniciar (${practica._daysUntilStart} días)` 
+                  : practica.estado === 'activa' 
+                    ? 'En curso' 
+                    : 'Finalizada'}
               </StatusBadge>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Completado</span>
-                <span className="font-medium text-foreground">{progreso}%</span>
+            {practica._calculatedState === 'starting_soon' ? (
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-sm text-amber-800">
+                  Tu práctica está programada para iniciar el{' '}
+                  <strong>{new Date(practica.fechaInicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.
+                  <br />
+                  Faltan <strong>{practica._daysUntilStart} días</strong> para el inicio.
+                </p>
               </div>
-              <Progress value={progreso} className="h-2" />
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Completado</span>
+                  <span className="font-medium text-foreground">{progreso}%</span>
+                </div>
+                <Progress value={progreso} className="h-2" />
+              </div>
+            )}
           </div>
 
           {/* Asesor Info */}
@@ -627,9 +671,13 @@ export default function PracticaDetailPage() {
                 <p className="font-medium text-foreground">{formatDate(practica.fechaFin)}</p>
               </div>
               <div className="pt-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">Días restantes</p>
-                <p className="font-medium text-foreground">
-                  {Math.max(0, Math.ceil((new Date(practica.fechaFin).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} días
+                <p className="text-sm text-muted-foreground">
+                  {practica._calculatedState === 'starting_soon' ? 'Días hasta el inicio' : 'Días restantes'}
+                </p>
+                <p className={`font-medium ${practica._calculatedState === 'starting_soon' ? 'text-amber-600' : 'text-foreground'}`}>
+                  {practica._calculatedState === 'starting_soon' 
+                    ? `${practica._daysUntilStart} días`
+                    : `${Math.max(0, Math.ceil((new Date(practica.fechaFin).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} días`}
                 </p>
               </div>
             </div>
@@ -639,15 +687,29 @@ export default function PracticaDetailPage() {
           <div className="bg-card rounded-xl border border-border p-6">
             <h3 className="font-semibold text-foreground mb-4">Acciones rápidas</h3>
             <div className="space-y-2">
-              <Button variant="outline" className="w-full justify-between" onClick={() => setShowHoursModal(true)}>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between" 
+                onClick={() => setShowHoursModal(true)}
+                disabled={practica._calculatedState === 'starting_soon'}
+              >
                 Registrar horas
                 <ChevronRight className="w-4 h-4" />
               </Button>
-              <Button variant="outline" className="w-full justify-between" onClick={() => setShowReportModal(true)}>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between" 
+                onClick={() => setShowReportModal(true)}
+                disabled={practica._calculatedState === 'starting_soon'}
+              >
                 Subir informe
                 <ChevronRight className="w-4 h-4" />
               </Button>
-              <Button variant="outline" className="w-full justify-between">
+              <Button 
+                variant="outline" 
+                className="w-full justify-between"
+                disabled={practica._calculatedState === 'starting_soon'}
+              >
                 Solicitar constancia
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -656,6 +718,11 @@ export default function PracticaDetailPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            {practica._calculatedState === 'starting_soon' && (
+              <p className="text-xs text-muted-foreground mt-3 text-center">
+                Estas acciones estarán disponibles cuando inicie tu práctica
+              </p>
+            )}
           </div>
         </motion.div>
       </div>

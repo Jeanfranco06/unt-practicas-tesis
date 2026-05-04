@@ -47,10 +47,12 @@ export default function InternshipsPage() {
     try {
       setIsLoading(true);
       const data = await fetchWithAuth(`${API_URL}/api/internships/offers`);
-      // Ensure data is always an array
-      setOffers(Array.isArray(data) ? data : []);
+      // Handle paginated response: { data: [...], total, page, limit, totalPages }
+      const offersArray = data?.data || (Array.isArray(data) ? data : []);
+      setOffers(offersArray);
       setError(null);
     } catch (err: any) {
+      console.error('Error loading offers:', err);
       setError(err.message);
       setOffers([]); // Ensure offers is always an array even on error
     } finally {

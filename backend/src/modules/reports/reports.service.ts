@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThan, MoreThan, IsNull, Not, In } from 'typeorm';
 import * as puppeteer from 'puppeteer';
 import * as handlebars from 'handlebars';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Internship, InternshipEstado } from '../internships/entities/internship.entity';
 import { HoursTracking } from '../internships/entities/hours-tracking.entity';
 import { InternshipApplication, ApplicationEstado } from '../internships/entities/internship-application.entity';
@@ -47,6 +49,30 @@ export class ReportsService {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(HoursTracking) private hoursRepo: Repository<HoursTracking>,
   ) {}
+
+  /**
+   * Obtiene el logo de la UNT como base64 para incrustar en PDFs
+   */
+  private getLogoBase64(): string {
+    try {
+      const logoPath = path.join(process.cwd(), 'src', 'assets', 'images', 'logo-unt.png');
+      if (fs.existsSync(logoPath)) {
+        const logoBuffer = fs.readFileSync(logoPath);
+        return `data:image/png;base64,${logoBuffer.toString('base64')}`;
+      }
+      // Intentar ruta alternativa
+      const altPath = path.join(__dirname, '..', '..', 'assets', 'images', 'logo-unt.png');
+      if (fs.existsSync(altPath)) {
+        const logoBuffer = fs.readFileSync(altPath);
+        return `data:image/png;base64,${logoBuffer.toString('base64')}`;
+      }
+      this.logger.warn('Logo UNT no encontrado en ninguna ruta');
+      return '';
+    } catch (error) {
+      this.logger.error('Error al cargar logo UNT:', error);
+      return '';
+    }
+  }
 
   // ==================== REPORTES DE OPERACIÓN (DÍA A DÍA) ====================
 
@@ -847,47 +873,356 @@ export class ReportsService {
   }
 
   private renderTemplate(templateName: string, data: any): string {
+    const logoBase64 = this.getLogoBase64();
+    const logoHtml = logoBase64 ? `<img src="${logoBase64}" alt="Logo UNT" />` : '<div style="width:56px;height:56px;background:#1e40af;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border-radius:8px;">UNT</div>';
     const commonStyles = `
       <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1f2937; line-height: 1.6; }
-        h1 { color: #1e40af; font-size: 24px; margin-bottom: 10px; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
-        h2 { color: #374151; font-size: 18px; margin: 20px 0 10px 0; }
-        h3 { color: #4b5563; font-size: 14px; margin: 15px 0 8px 0; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .fecha { color: #6b7280; font-size: 12px; }
-        .summary { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); padding: 20px; border-radius: 12px; margin: 20px 0; }
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-        .summary-item { text-align: center; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .summary-value { font-size: 28px; font-weight: bold; color: #1e40af; }
-        .summary-label { font-size: 11px; color: #6b7280; text-transform: uppercase; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
-        th { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 8px; text-align: left; font-weight: 600; }
-        td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; }
-        tr:nth-child(even) { background: #f9fafb; }
-        tr:hover { background: #f3f4f6; }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
-        .badge-activa, .badge-aprobado, .badge-entregado { background: #dcfce7; color: #166534; }
-        .badge-finalizada, .badge-culminado { background: #dbeafe; color: #1e40af; }
-        .badge-pendiente, .badge-postulado { background: #fef3c7; color: #92400e; }
-        .badge-observado, .badge-vencido { background: #fee2e2; color: #991b1b; }
-        .badge-en_desarrollo, .badge-revisando { background: #e0e7ff; color: #3730a3; }
-        .alert { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-        .alert-warning { background: #fef3c7; color: #92400e; }
-        .alert-danger { background: #fee2e2; color: #991b1b; }
-        .alert-success { background: #dcfce7; color: #166534; }
-        .section { margin: 25px 0; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
-        .card-value { font-size: 24px; font-weight: bold; color: #1e40af; }
-        .card-label { font-size: 11px; color: #6b7280; margin-top: 5px; }
-        .progress-bar { background: #e5e7eb; border-radius: 10px; height: 8px; overflow: hidden; }
-        .progress-fill { background: linear-gradient(90deg, #3b82f6, #1e40af); height: 100%; border-radius: 10px; }
-        .text-muted { color: #6b7280; }
-        .text-small { font-size: 10px; }
-        .empty-state { text-align: center; padding: 40px; color: #9ca3af; }
+        
+        body { 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+          padding: 0; 
+          color: #1a1a2e; 
+          line-height: 1.6; 
+          background: #fafbfc;
+        }
+        
+        /* Header Institucional */
+        .institutional-header {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          padding: 24px 32px;
+          border-bottom: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        }
+        
+        .logo-section {
+          flex-shrink: 0;
+        }
+        
+        .logo-section img {
+          width: 56px;
+          height: 56px;
+          object-fit: contain;
+        }
+        
+        .header-content {
+          flex: 1;
+        }
+        
+        .header-content h1 {
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e40af;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          margin-bottom: 2px;
+        }
+        
+        .header-content h2 {
+          font-size: 18px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0;
+        }
+        
+        .header-meta {
+          text-align: right;
+          font-size: 12px;
+          color: #64748b;
+        }
+        
+        .header-meta .date {
+          font-weight: 500;
+          color: #334155;
+        }
+        
+        /* Main Content */
+        .main-content {
+          padding: 28px 32px;
+        }
+        
+        /* Report Title */
+        .report-title {
+          font-size: 22px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 24px;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #1e40af;
+          display: inline-block;
+        }
+        
+        h2 { 
+          font-size: 14px; 
+          font-weight: 600;
+          color: #334155; 
+          margin: 24px 0 12px 0; 
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        
+        h3 { 
+          font-size: 13px; 
+          font-weight: 600;
+          color: #475569; 
+          margin: 16px 0 10px 0; 
+        }
+        
+        /* Summary Cards - Modern Style */
+        .summary { 
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 16px;
+          margin: 20px 0 28px 0; 
+        }
+        
+        .summary-item { 
+          background: #ffffff;
+          padding: 20px 16px;
+          border-radius: 12px;
+          text-align: center;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+          transition: transform 0.2s ease;
+        }
+        
+        .summary-item:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .summary-value { 
+          font-size: 32px; 
+          font-weight: 700; 
+          color: #1e40af;
+          line-height: 1.2;
+        }
+        
+        .summary-label { 
+          font-size: 11px; 
+          font-weight: 500;
+          color: #64748b; 
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          margin-top: 6px;
+        }
+        
+        /* Table - Clean Modern */
+        table { 
+          width: 100%; 
+          border-collapse: separate;
+          border-spacing: 0;
+          margin-top: 16px; 
+          font-size: 12px;
+          background: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        
+        th { 
+          background: #f8fafc;
+          color: #475569;
+          padding: 14px 12px;
+          text-align: left; 
+          font-weight: 600;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        td { 
+          padding: 12px; 
+          border-bottom: 1px solid #f1f5f9;
+          color: #334155;
+        }
+        
+        tr:last-child td {
+          border-bottom: none;
+        }
+        
+        tr:nth-child(even) { 
+          background: #fafbfc; 
+        }
+        
+        tr:hover { 
+          background: #f1f5f9; 
+        }
+        
+        /* Badges - Refined */
+        .badge { 
+          display: inline-flex;
+          align-items: center;
+          padding: 5px 12px;
+          border-radius: 20px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        
+        .badge-activa, .badge-aprobado, .badge-entregado { 
+          background: #dcfce7; 
+          color: #166534; 
+        }
+        
+        .badge-finalizada, .badge-culminado { 
+          background: #dbeafe; 
+          color: #1e40af; 
+        }
+        
+        .badge-pendiente, .badge-postulado { 
+          background: #fef3c7; 
+          color: #92400e; 
+        }
+        
+        .badge-observado, .badge-vencido, .badge-rechazado { 
+          background: #fee2e2; 
+          color: #991b1b; 
+        }
+        
+        .badge-en_desarrollo, .badge-revisando { 
+          background: #e0e7ff; 
+          color: #3730a3; 
+        }
+        
+        /* Alert Styles */
+        .alert { 
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+        
+        .alert-warning { 
+          background: #fef3c7; 
+          color: #92400e; 
+        }
+        
+        .alert-danger { 
+          background: #fee2e2; 
+          color: #991b1b; 
+        }
+        
+        .alert-success { 
+          background: #dcfce7; 
+          color: #166534; 
+        }
+        
+        .section { 
+          margin: 24px 0; 
+        }
+        
+        /* Grid Cards */
+        .grid-4 { 
+          display: grid; 
+          grid-template-columns: repeat(4, 1fr); 
+          gap: 16px; 
+        }
+        
+        .grid-3 { 
+          display: grid; 
+          grid-template-columns: repeat(3, 1fr); 
+          gap: 16px; 
+        }
+        
+        .card { 
+          background: #ffffff;
+          padding: 20px 16px;
+          border-radius: 10px;
+          text-align: center;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .card-value { 
+          font-size: 28px; 
+          font-weight: 700; 
+          color: #1e40af;
+          margin-bottom: 4px;
+        }
+        
+        .card-label { 
+          font-size: 11px; 
+          font-weight: 500;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        
+        /* Progress Bar */
+        .progress-bar { 
+          background: #e2e8f0;
+          border-radius: 10px;
+          height: 6px;
+          overflow: hidden;
+        }
+        
+        .progress-fill { 
+          background: linear-gradient(90deg, #3b82f6, #1e40af);
+          height: 100%;
+          border-radius: 10px;
+          transition: width 0.3s ease;
+        }
+        
+        /* Text Utilities */
+        .text-muted { 
+          color: #64748b; 
+        }
+        
+        .text-small { 
+          font-size: 11px; 
+        }
+        
+        /* Empty State */
+        .empty-state { 
+          text-align: center; 
+          padding: 48px 24px; 
+          color: #94a3b8;
+          font-size: 14px;
+          background: #f8fafc;
+          border-radius: 10px;
+          border: 1px dashed #e2e8f0;
+        }
+        
+        /* Footer */
+        .report-footer {
+          margin-top: 40px;
+          padding: 16px 32px;
+          border-top: 1px solid #e2e8f0;
+          font-size: 11px;
+          color: #94a3b8;
+          text-align: center;
+          background: #ffffff;
+        }
       </style>
+    `;
+
+    const headerHtml = `
+      <div class="institutional-header">
+        <div class="logo-section">
+          ${logoHtml}
+        </div>
+        <div class="header-content">
+          <h1>Universidad Nacional de Trujillo</h1>
+          <h2>Sistema de Gestión de Prácticas y Tesis</h2>
+        </div>
+        <div class="header-meta">
+          <div class="date">${data.fecha}</div>
+        </div>
+      </div>
+    `;
+    const footerHtml = `
+      <div class="report-footer">
+        Universidad Nacional de Trujillo - Reporte generado el ${data.fecha}
+      </div>
     `;
 
     const templates: Record<string, string> = {
@@ -895,10 +1230,9 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Prácticas en Curso</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Prácticas en Curso</h1>
             <div class="summary">
               <div class="summary-grid">
                 <div class="summary-item">
@@ -946,6 +1280,8 @@ export class ReportsService {
             {{else}}
             <div class="empty-state">No hay prácticas en curso para mostrar</div>
             {{/if}}
+            </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -954,12 +1290,10 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Postulaciones</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Postulaciones a Prácticas</h1>
+              <div class="summary">
                 <div class="summary-item">
                   <div class="summary-value">{{totalOfertas}}</div>
                   <div class="summary-label">Total Ofertas</div>
@@ -977,29 +1311,30 @@ export class ReportsService {
                   <div class="summary-label">Rechazadas</div>
                 </div>
               </div>
+              <h2>Distribución por Estado</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{porEstado.postulado}}</div><div class="card-label">Postulado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.preseleccionado}}</div><div class="card-label">Preseleccionado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.rechazado}}</div><div class="card-label">Rechazado</div></div>
+              </div>
+              {{#if ofertas.length}}
+              <h2>Detalle de Ofertas</h2>
+              <table>
+                <tr><th>Título</th><th>Empresa</th><th>Cupos</th><th>Postulantes</th><th>Estado</th></tr>
+                {{#each ofertas}}
+                <tr>
+                  <td>{{titulo}}</td>
+                  <td>{{empresa}}</td>
+                  <td>{{cupos}}</td>
+                  <td>{{postulantes}}</td>
+                  <td><span class="badge badge-{{estado}}">{{estado}}</span></td>
+                </tr>
+                {{/each}}
+              </table>
+              {{/if}}
             </div>
-            <h2>Distribución por Estado</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{porEstado.postulado}}</div><div class="card-label">Postulado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.preseleccionado}}</div><div class="card-label">Preseleccionado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.rechazado}}</div><div class="card-label">Rechazado</div></div>
-            </div>
-            {{#if ofertas.length}}
-            <h2>Detalle de Ofertas</h2>
-            <table>
-              <tr><th>Título</th><th>Empresa</th><th>Cupos</th><th>Postulantes</th><th>Estado</th></tr>
-              {{#each ofertas}}
-              <tr>
-                <td>{{titulo}}</td>
-                <td>{{empresa}}</td>
-                <td>{{cupos}}</td>
-                <td>{{postulantes}}</td>
-                <td><span class="badge badge-{{estado}}">{{estado}}</span></td>
-              </tr>
-              {{/each}}
-            </table>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1008,44 +1343,43 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Seguimiento de Tesis</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Seguimiento de Tesis</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{total}}</div><div class="summary-label">Total Proyectos</div></div>
                 <div class="summary-item"><div class="summary-value">{{conAtrasos}}</div><div class="summary-label">Con Atrasos</div></div>
                 <div class="summary-item"><div class="summary-value">{{sinAsesor}}</div><div class="summary-label">Sin Asesor</div></div>
               </div>
+              <h2>Distribución por Estado</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{porEstado.en_registro}}</div><div class="card-label">En Registro</div></div>
+                <div class="card"><div class="card-value">{{porEstado.propuesto}}</div><div class="card-label">Propuesto</div></div>
+                <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.en_desarrollo}}</div><div class="card-label">En Desarrollo</div></div>
+              </div>
+              {{#if items.length}}
+              <h2>Detalle de Proyectos</h2>
+              <table>
+                <tr><th>Título</th><th>Estudiante</th><th>Área</th><th>Estado</th><th>Asesor</th><th>Entregables</th><th>Pendientes</th><th>Atrasados</th></tr>
+                {{#each items}}
+                <tr>
+                  <td>{{titulo}}</td>
+                  <td>{{estudiante}}</td>
+                  <td>{{area}}</td>
+                  <td><span class="badge badge-{{estado}}">{{estado}}</span></td>
+                  <td>{{#if asesor}}{{asesor}}{{else}}<span class="alert alert-danger">Sin asignar</span>{{/if}}</td>
+                  <td>{{totalEntregables}}</td>
+                  <td>{{#if entregablesPendientes}}<span class="alert alert-warning">{{entregablesPendientes}}</span>{{else}}0{{/if}}</td>
+                  <td>{{#if entregablesAtrasados}}<span class="alert alert-danger">{{entregablesAtrasados}}</span>{{else}}0{{/if}}</td>
+                </tr>
+                {{/each}}
+              </table>
+              {{else}}
+              <div class="empty-state">No hay proyectos de tesis para mostrar</div>
+              {{/if}}
             </div>
-            <h2>Distribución por Estado</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{porEstado.en_registro}}</div><div class="card-label">En Registro</div></div>
-              <div class="card"><div class="card-value">{{porEstado.propuesto}}</div><div class="card-label">Propuesto</div></div>
-              <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.en_desarrollo}}</div><div class="card-label">En Desarrollo</div></div>
-            </div>
-            {{#if items.length}}
-            <h2>Detalle de Proyectos</h2>
-            <table>
-              <tr><th>Título</th><th>Estudiante</th><th>Área</th><th>Estado</th><th>Asesor</th><th>Entregables</th><th>Pendientes</th><th>Atrasados</th></tr>
-              {{#each items}}
-              <tr>
-                <td>{{titulo}}</td>
-                <td>{{estudiante}}</td>
-                <td>{{area}}</td>
-                <td><span class="badge badge-{{estado}}">{{estado}}</span></td>
-                <td>{{#if asesor}}{{asesor}}{{else}}<span class="alert alert-danger">Sin asignar</span>{{/if}}</td>
-                <td>{{totalEntregables}}</td>
-                <td>{{#if entregablesPendientes}}<span class="alert alert-warning">{{entregablesPendientes}}</span>{{else}}0{{/if}}</td>
-                <td>{{#if entregablesAtrasados}}<span class="alert alert-danger">{{entregablesAtrasados}}</span>{{else}}0{{/if}}</td>
-              </tr>
-              {{/each}}
-            </table>
-            {{else}}
-            <div class="empty-state">No hay proyectos de tesis para mostrar</div>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1054,40 +1388,39 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Evaluaciones y Aprobaciones</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Evaluaciones y Aprobaciones</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{totalEvaluado}}</div><div class="summary-label">Total Evaluado</div></div>
                 <div class="summary-item"><div class="summary-value">{{pendientesRevision}}</div><div class="summary-label">Pendientes</div></div>
                 <div class="summary-item"><div class="summary-value">{{tasaAprobacion}}%</div><div class="summary-label">Tasa Aprobación</div></div>
               </div>
+              <h2>Distribución por Estado</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{porEstado.entregado}}</div><div class="card-label">Entregado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.revisando}}</div><div class="card-label">Revisando</div></div>
+                <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.observado}}</div><div class="card-label">Observado</div></div>
+              </div>
+              {{#if itemsPendientes.length}}
+              <h2>Entregas Pendientes de Revisión</h2>
+              <table>
+                <tr><th>Entrega</th><th>Entregable</th><th>Proyecto</th><th>Estudiante</th><th>Fecha</th><th>Días Pend.</th></tr>
+                {{#each itemsPendientes}}
+                <tr>
+                  <td>{{tituloEntrega}}</td>
+                  <td>{{entregable}}</td>
+                  <td>{{proyecto}}</td>
+                  <td>{{estudiante}}</td>
+                  <td>{{fechaEntrega}}</td>
+                  <td><span class="alert alert-warning">{{diasPendientes}}</span></td>
+                </tr>
+                {{/each}}
+              </table>
+              {{/if}}
             </div>
-            <h2>Distribución por Estado</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{porEstado.entregado}}</div><div class="card-label">Entregado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.revisando}}</div><div class="card-label">Revisando</div></div>
-              <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.observado}}</div><div class="card-label">Observado</div></div>
-            </div>
-            {{#if itemsPendientes.length}}
-            <h2>Entregas Pendientes de Revisión</h2>
-            <table>
-              <tr><th>Entrega</th><th>Entregable</th><th>Proyecto</th><th>Estudiante</th><th>Fecha</th><th>Días Pend.</th></tr>
-              {{#each itemsPendientes}}
-              <tr>
-                <td>{{tituloEntrega}}</td>
-                <td>{{entregable}}</td>
-                <td>{{proyecto}}</td>
-                <td>{{estudiante}}</td>
-                <td>{{fechaEntrega}}</td>
-                <td><span class="alert alert-warning">{{diasPendientes}}</span></td>
-              </tr>
-              {{/each}}
-            </table>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1096,33 +1429,35 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Sustentaciones Programadas</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
-                <div class="summary-item"><div class="summary-value">{{total}}</div><div class="summary-label">Total Sustentaciones</div></div>
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Sustentaciones Programadas</h1>
+              <div class="summary">
+                <div class="summary-item">
+                  <div class="summary-value">{{total}}</div>
+                  <div class="summary-label">Total Sustentaciones</div>
+                </div>
               </div>
+              {{#if items.length}}
+              <table>
+                <tr><th>Fecha</th><th>Hora</th><th>Lugar</th><th>Proyecto</th><th>Estudiante</th><th>Jurados</th><th>Resultado</th></tr>
+                {{#each items}}
+                <tr>
+                  <td>{{fecha}}</td>
+                  <td>{{horaInicio}}-{{horaFin}}</td>
+                  <td>{{lugar}}</td>
+                  <td>{{proyecto}}</td>
+                  <td>{{estudiante}}</td>
+                  <td>{{#each jurados}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
+                  <td>{{#if resultado}}<span class="badge badge-{{resultado}}">{{resultado}}</span>{{else}}<span class="text-muted">Pendiente</span>{{/if}}</td>
+                </tr>
+                {{/each}}
+              </table>
+              {{else}}
+              <div class="empty-state">No hay sustentaciones programadas</div>
+              {{/if}}
             </div>
-            {{#if items.length}}
-            <table>
-              <tr><th>Fecha</th><th>Hora</th><th>Lugar</th><th>Proyecto</th><th>Estudiante</th><th>Jurados</th><th>Resultado</th></tr>
-              {{#each items}}
-              <tr>
-                <td>{{fecha}}</td>
-                <td>{{horaInicio}}-{{horaFin}}</td>
-                <td>{{lugar}}</td>
-                <td>{{proyecto}}</td>
-                <td>{{estudiante}}</td>
-                <td>{{#each jurados}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
-                <td>{{#if resultado}}<span class="badge badge-{{resultado}}">{{resultado}}</span>{{else}}<span class="text-muted">Pendiente</span>{{/if}}</td>
-              </tr>
-              {{/each}}
-            </table>
-            {{else}}
-            <div class="empty-state">No hay sustentaciones programadas</div>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1131,40 +1466,39 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Convenios Activos</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Convenios Activos</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{total}}</div><div class="summary-label">Total Convenios</div></div>
                 <div class="summary-item"><div class="summary-value">{{porVencer30Dias}}</div><div class="summary-label">Vencen <30 días</div></div>
                 <div class="summary-item"><div class="summary-value">{{porVencer60Dias}}</div><div class="summary-label">Vencen <60 días</div></div>
               </div>
+              {{#if items.length}}
+              <table>
+                <tr><th>Empresa</th><th>Tipo</th><th>Inicio</th><th>Vencimiento</th><th>Días Rest.</th><th>Alerta</th></tr>
+                {{#each items}}
+                <tr>
+                  <td>{{empresa}}</td>
+                  <td>{{tipo}}</td>
+                  <td>{{fechaInicio}}</td>
+                  <td>{{fechaVencimiento}}</td>
+                  <td>{{diasRestantes}}</td>
+                  <td>
+                    {{#if alerta}}
+                      {{#if (eq alerta 'critica')}}<span class="alert alert-danger">Crítica</span>
+                      {{else}}<span class="alert alert-warning">Advertencia</span>{{/if}}
+                    {{else}}<span class="alert alert-success">Normal</span>
+                    {{/if}}
+                  </td>
+                </tr>
+                {{/each}}
+              </table>
+              {{else}}
+              <div class="empty-state">No hay convenios activos</div>
+              {{/if}}
             </div>
-            {{#if items.length}}
-            <table>
-              <tr><th>Empresa</th><th>Tipo</th><th>Inicio</th><th>Vencimiento</th><th>Días Rest.</th><th>Alerta</th></tr>
-              {{#each items}}
-              <tr>
-                <td>{{empresa}}</td>
-                <td>{{tipo}}</td>
-                <td>{{fechaInicio}}</td>
-                <td>{{fechaVencimiento}}</td>
-                <td>{{diasRestantes}}</td>
-                <td>
-                  {{#if alerta}}
-                    {{#if (eq alerta 'critica')}}<span class="alert alert-danger">Crítica</span>
-                    {{else}}<span class="alert alert-warning">Advertencia</span>{{/if}}
-                  {{else}}<span class="alert alert-success">Normal</span>
-                  {{/if}}
-                </td>
-              </tr>
-              {{/each}}
-            </table>
-            {{else}}
-            <div class="empty-state">No hay convenios activos</div>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1173,49 +1507,50 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Alertas Operativas</h1>
-              <span class="fecha">${data.fecha}</span>
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Alertas Operativas</h1>
+              <div class="section">
+                <h2>Convenios por Vencer ({{conveniosPorVencer.total}})</h2>
+                {{#if conveniosPorVencer.items.length}}
+                <table>
+                  <tr><th>Empresa</th><th>Vencimiento</th><th>Días Restantes</th></tr>
+                  {{#each conveniosPorVencer.items}}
+                  <tr><td>{{empresa}}</td><td>{{fechaVencimiento}}</td><td><span class="alert alert-danger">{{diasRestantes}}</span></td></tr>
+                  {{/each}}
+                </table>
+                {{else}}<p class="text-muted">No hay convenios por vencer</p>{{/if}}
+              </div>
+              <div class="section">
+                <h2>Estudiantes Sin Avance ({{estudiantesSinAvance.total}})</h2>
+                {{#if estudiantesSinAvance.items.length}}
+                <table>
+                  <tr><th>Estudiante</th><th>Empresa</th><th>Horas</th><th>Progreso</th></tr>
+                  {{#each estudiantesSinAvance.items}}
+                  <tr>
+                    <td>{{estudiante}}</td><td>{{empresa}}</td><td>{{horasCompletadas}}/{{horasRequeridas}}</td>
+                    <td><span class="alert alert-warning">{{progreso}}%</span></td>
+                  </tr>
+                  {{/each}}
+                </table>
+                {{else}}<p class="text-muted">No hay estudiantes sin avance</p>{{/if}}
+              </div>
+              <div class="section">
+                <h2>Entregas Fuera de Plazo ({{entregasFueraDePlazo.total}})</h2>
+                {{#if entregasFueraDePlazo.items.length}}
+                <table>
+                  <tr><th>Entregable</th><th>Proyecto</th><th>Estudiante</th><th>Fecha Límite</th><th>Días Atraso</th></tr>
+                  {{#each entregasFueraDePlazo.items}}
+                  <tr>
+                    <td>{{entregable}}</td><td>{{proyecto}}</td><td>{{estudiante}}</td>
+                    <td>{{fechaLimite}}</td><td><span class="alert alert-danger">{{diasAtraso}}</span></td>
+                  </tr>
+                  {{/each}}
+                </table>
+                {{else}}<p class="text-muted">No hay entregas fuera de plazo</p>{{/if}}
+              </div>
             </div>
-            <div class="section">
-              <h2>Convenios por Vencer ({{conveniosPorVencer.total}})</h2>
-              {{#if conveniosPorVencer.items.length}}
-              <table>
-                <tr><th>Empresa</th><th>Vencimiento</th><th>Días Restantes</th></tr>
-                {{#each conveniosPorVencer.items}}
-                <tr><td>{{empresa}}</td><td>{{fechaVencimiento}}</td><td><span class="alert alert-danger">{{diasRestantes}}</span></td></tr>
-                {{/each}}
-              </table>
-              {{else}}<p class="text-muted">No hay convenios por vencer</p>{{/if}}
-            </div>
-            <div class="section">
-              <h2>Estudiantes Sin Avance ({{estudiantesSinAvance.total}})</h2>
-              {{#if estudiantesSinAvance.items.length}}
-              <table>
-                <tr><th>Estudiante</th><th>Empresa</th><th>Horas</th><th>Progreso</th></tr>
-                {{#each estudiantesSinAvance.items}}
-                <tr>
-                  <td>{{estudiante}}</td><td>{{empresa}}</td><td>{{horasCompletadas}}/{{horasRequeridas}}</td>
-                  <td><span class="alert alert-warning">{{progreso}}%</span></td>
-                </tr>
-                {{/each}}
-              </table>
-              {{else}}<p class="text-muted">No hay estudiantes sin avance</p>{{/if}}
-            </div>
-            <div class="section">
-              <h2>Entregas Fuera de Plazo ({{entregasFueraDePlazo.total}})</h2>
-              {{#if entregasFueraDePlazo.items.length}}
-              <table>
-                <tr><th>Entregable</th><th>Proyecto</th><th>Estudiante</th><th>Fecha Límite</th><th>Días Atraso</th></tr>
-                {{#each entregasFueraDePlazo.items}}
-                <tr>
-                  <td>{{entregable}}</td><td>{{proyecto}}</td><td>{{estudiante}}</td>
-                  <td>{{fechaLimite}}</td><td><span class="alert alert-danger">{{diasAtraso}}</span></td>
-                </tr>
-                {{/each}}
-              </table>
-              {{else}}<p class="text-muted">No hay entregas fuera de plazo</p>{{/if}}
-            </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1224,37 +1559,38 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Indicadores Generales</h1>
-              <span class="fecha">${data.fecha}</span>
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Indicadores Generales</h1>
+              <h2>Prácticas</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{practicas.total}}</div><div class="card-label">Total</div></div>
+                <div class="card"><div class="card-value">{{practicas.activas}}</div><div class="card-label">Activas</div></div>
+                <div class="card"><div class="card-value">{{practicas.finalizadas}}</div><div class="card-label">Finalizadas</div></div>
+                <div class="card"><div class="card-value">{{practicas.porcentajeFinalizadas}}%</div><div class="card-label">% Finalizadas</div></div>
+              </div>
+              <h2>Tesis</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{tesis.total}}</div><div class="card-label">Total</div></div>
+                <div class="card"><div class="card-value">{{tesis.activas}}</div><div class="card-label">Activas</div></div>
+                <div class="card"><div class="card-value">{{tesis.finalizadas}}</div><div class="card-label">Finalizadas</div></div>
+                <div class="card"><div class="card-value">{{tesis.porcentajeFinalizadas}}%</div><div class="card-label">% Finalizadas</div></div>
+              </div>
+              <h2>Convenios y Empresas</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{convenios.total}}</div><div class="card-label">Convenios</div></div>
+                <div class="card"><div class="card-value">{{convenios.vigentes}}</div><div class="card-label">Vigentes</div></div>
+                <div class="card"><div class="card-value">{{empresas.total}}</div><div class="card-label">Empresas</div></div>
+                <div class="card"><div class="card-value">{{empresas.conConvenio}}</div><div class="card-label">Con Convenio</div></div>
+              </div>
+              <h2>Estudiantes</h2>
+              <div class="grid-3">
+                <div class="card"><div class="card-value">{{estudiantes.total}}</div><div class="card-label">Total</div></div>
+                <div class="card"><div class="card-value">{{estudiantes.enPractica}}</div><div class="card-label">En Práctica</div></div>
+                <div class="card"><div class="card-value">{{estudiantes.enTesis}}</div><div class="card-label">En Tesis</div></div>
+              </div>
             </div>
-            <h2>Prácticas</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{practicas.total}}</div><div class="card-label">Total</div></div>
-              <div class="card"><div class="card-value">{{practicas.activas}}</div><div class="card-label">Activas</div></div>
-              <div class="card"><div class="card-value">{{practicas.finalizadas}}</div><div class="card-label">Finalizadas</div></div>
-              <div class="card"><div class="card-value">{{practicas.porcentajeFinalizadas}}%</div><div class="card-label">% Finalizadas</div></div>
-            </div>
-            <h2>Tesis</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{tesis.total}}</div><div class="card-label">Total</div></div>
-              <div class="card"><div class="card-value">{{tesis.activas}}</div><div class="card-label">Activas</div></div>
-              <div class="card"><div class="card-value">{{tesis.finalizadas}}</div><div class="card-label">Finalizadas</div></div>
-              <div class="card"><div class="card-value">{{tesis.porcentajeFinalizadas}}%</div><div class="card-label">% Finalizadas</div></div>
-            </div>
-            <h2>Convenios y Empresas</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{convenios.total}}</div><div class="card-label">Convenios</div></div>
-              <div class="card"><div class="card-value">{{convenios.vigentes}}</div><div class="card-label">Vigentes</div></div>
-              <div class="card"><div class="card-value">{{empresas.total}}</div><div class="card-label">Empresas</div></div>
-              <div class="card"><div class="card-value">{{empresas.conConvenio}}</div><div class="card-label">Con Convenio</div></div>
-            </div>
-            <h2>Estudiantes</h2>
-            <div class="grid-3">
-              <div class="card"><div class="card-value">{{estudiantes.total}}</div><div class="card-label">Total</div></div>
-              <div class="card"><div class="card-value">{{estudiantes.enPractica}}</div><div class="card-label">En Práctica</div></div>
-              <div class="card"><div class="card-value">{{estudiantes.enTesis}}</div><div class="card-label">En Tesis</div></div>
-            </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1263,25 +1599,24 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Rendimiento de Prácticas</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Rendimiento de Prácticas</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{tasaColocacion}}%</div><div class="summary-label">Tasa Colocación</div></div>
                 <div class="summary-item"><div class="summary-value">{{promedioDiasColocacion}}</div><div class="summary-label">Días Promedio</div></div>
                 <div class="summary-item"><div class="summary-value">{{tasaAprobacion}}%</div><div class="summary-label">Tasa Aprobación</div></div>
                 <div class="summary-item"><div class="summary-value">{{totalPostulaciones}}</div><div class="summary-label">Total Postulaciones</div></div>
               </div>
+              <h2>Distribución por Estado</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{porEstado.postulado}}</div><div class="card-label">Postulado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.preseleccionado}}</div><div class="card-label">Preseleccionado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.rechazado}}</div><div class="card-label">Rechazado</div></div>
+              </div>
             </div>
-            <h2>Distribución por Estado</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{porEstado.postulado}}</div><div class="card-label">Postulado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.preseleccionado}}</div><div class="card-label">Preseleccionado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.rechazado}}</div><div class="card-label">Rechazado</div></div>
-            </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1290,33 +1625,32 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Participación de Empresas</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Participación de Empresas</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{totalEmpresas}}</div><div class="summary-label">Total Empresas</div></div>
                 <div class="summary-item"><div class="summary-value">{{empresasActivas}}</div><div class="summary-label">Empresas Activas</div></div>
                 <div class="summary-item"><div class="summary-value">{{promedioPracticantesPorEmpresa}}</div><div class="summary-label">Promedio Practicantes</div></div>
                 <div class="summary-item"><div class="summary-value">{{empresasSinActividad}}</div><div class="summary-label">Sin Actividad</div></div>
               </div>
+              {{#if topEmpresas.length}}
+              <h2>Top Empresas por Practicantes</h2>
+              <table>
+                <tr><th>Empresa</th><th>RUC</th><th>Practicantes</th><th>Ofertas Activas</th><th>Convenios</th></tr>
+                {{#each topEmpresas}}
+                <tr>
+                  <td>{{nombre}}</td>
+                  <td>{{ruc}}</td>
+                  <td>{{practicantes}}</td>
+                  <td>{{ofertasActivas}}</td>
+                  <td>{{convenios}}</td>
+                </tr>
+                {{/each}}
+              </table>
+              {{/if}}
             </div>
-            {{#if topEmpresas.length}}
-            <h2>Top Empresas por Practicantes</h2>
-            <table>
-              <tr><th>Empresa</th><th>RUC</th><th>Practicantes</th><th>Ofertas Activas</th><th>Convenios</th></tr>
-              {{#each topEmpresas}}
-              <tr>
-                <td>{{nombre}}</td>
-                <td>{{ruc}}</td>
-                <td>{{practicantes}}</td>
-                <td>{{ofertasActivas}}</td>
-                <td>{{convenios}}</td>
-              </tr>
-              {{/each}}
-            </table>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1325,25 +1659,24 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Rendimiento de Tesis</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Rendimiento de Tesis</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{totalTesis}}</div><div class="summary-label">Total Tesis</div></div>
                 <div class="summary-item"><div class="summary-value">{{sustentadas}}</div><div class="summary-label">Sustentadas</div></div>
                 <div class="summary-item"><div class="summary-value">{{tasaAprobacion}}%</div><div class="summary-label">Tasa Aprobación</div></div>
                 <div class="summary-item"><div class="summary-value">{{promedioDiasDesarrollo}}</div><div class="summary-label">Días Promedio</div></div>
               </div>
+              <h2>Distribución por Estado</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{porEstado.en_registro}}</div><div class="card-label">En Registro</div></div>
+                <div class="card"><div class="card-value">{{porEstado.propuesto}}</div><div class="card-label">Propuesto</div></div>
+                <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
+                <div class="card"><div class="card-value">{{porEstado.en_desarrollo}}</div><div class="card-label">En Desarrollo</div></div>
+              </div>
             </div>
-            <h2>Distribución por Estado</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{porEstado.en_registro}}</div><div class="card-label">En Registro</div></div>
-              <div class="card"><div class="card-value">{{porEstado.propuesto}}</div><div class="card-label">Propuesto</div></div>
-              <div class="card"><div class="card-value">{{porEstado.aprobado}}</div><div class="card-label">Aprobado</div></div>
-              <div class="card"><div class="card-value">{{porEstado.en_desarrollo}}</div><div class="card-label">En Desarrollo</div></div>
-            </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1352,33 +1685,32 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Desempeño de Asesores</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Desempeño de Asesores</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{totalAsesores}}</div><div class="summary-label">Total Asesores</div></div>
                 <div class="summary-item"><div class="summary-value">{{asesoresActivos}}</div><div class="summary-label">Asesores Activos</div></div>
                 <div class="summary-item"><div class="summary-value">{{promedioTesisPorAsesor}}</div><div class="summary-label">Promedio Tesis/Asesor</div></div>
               </div>
+              {{#if asesores.length}}
+              <h2>Detalle por Asesor</h2>
+              <table>
+                <tr><th>Nombre</th><th>Email</th><th>Tesis Asesoradas</th><th>Como Jurado</th><th>Carga Total</th><th>Estado</th></tr>
+                {{#each asesores}}
+                <tr>
+                  <td>{{nombre}}</td>
+                  <td>{{email}}</td>
+                  <td>{{tesisAsesoradas}}</td>
+                  <td>{{comoJurado}}</td>
+                  <td>{{cargaTotal}}</td>
+                  <td><span class="badge badge-{{#if activo}}aprobado{{else}}rechazado{{/if}}">{{#if activo}}Activo{{else}}Inactivo{{/if}}</span></td>
+                </tr>
+                {{/each}}
+              </table>
+              {{/if}}
             </div>
-            {{#if asesores.length}}
-            <h2>Detalle por Asesor</h2>
-            <table>
-              <tr><th>Nombre</th><th>Email</th><th>Tesis Asesoradas</th><th>Como Jurado</th><th>Carga Total</th><th>Estado</th></tr>
-              {{#each asesores}}
-              <tr>
-                <td>{{nombre}}</td>
-                <td>{{email}}</td>
-                <td>{{tesisAsesoradas}}</td>
-                <td>{{comoJurado}}</td>
-                <td>{{cargaTotal}}</td>
-                <td><span class="badge badge-{{#if activo}}aprobado{{else}}rechazado{{/if}}">{{#if activo}}Activo{{else}}Inactivo{{/if}}</span></td>
-              </tr>
-              {{/each}}
-            </table>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1387,24 +1719,23 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Cumplimiento de Plazos</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Cumplimiento de Plazos</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{totalEntregas}}</div><div class="summary-label">Total Entregas</div></div>
                 <div class="summary-item"><div class="summary-value">{{aTiempo}}</div><div class="summary-label">A Tiempo</div></div>
                 <div class="summary-item"><div class="summary-value">{{retrasadas}}</div><div class="summary-label">Retrasadas</div></div>
                 <div class="summary-item"><div class="summary-value">{{tasaCumplimiento}}%</div><div class="summary-label">Tasa Cumplimiento</div></div>
               </div>
-            </div>
-            <div style="margin-top: 20px;">
-              <h3>Días Promedio de Retraso: {{promedioDiasRetraso}}</h3>
-              <div class="progress-bar" style="margin-top: 10px; height: 20px;">
-                <div class="progress-fill" style="width: {{tasaCumplimiento}}%;"></div>
+              <div style="margin-top: 20px;">
+                <h3>Días Promedio de Retraso: {{promedioDiasRetraso}}</h3>
+                <div class="progress-bar" style="margin-top: 10px; height: 20px;">
+                  <div class="progress-fill" style="width: {{tasaCumplimiento}}%;"></div>
+                </div>
               </div>
             </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1413,19 +1744,18 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Evolución Temporal</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <p class="text-muted">Período: {{periodo.desde}} - {{periodo.hasta}}</p>
-              <div class="summary-grid" style="margin-top: 15px;">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Evolución Temporal</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{totales.practicas}}</div><div class="summary-label">Prácticas</div></div>
                 <div class="summary-item"><div class="summary-value">{{totales.tesis}}</div><div class="summary-label">Tesis</div></div>
                 <div class="summary-item"><div class="summary-value">{{totales.ofertas}}</div><div class="summary-label">Ofertas</div></div>
                 <div class="summary-item"><div class="summary-value">{{totales.postulaciones}}</div><div class="summary-label">Postulaciones</div></div>
               </div>
+              <p class="text-muted">Período: {{periodo.desde}} - {{periodo.hasta}}</p>
             </div>
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1434,39 +1764,38 @@ export class ReportsService {
         <html>
           <head><meta charset="UTF-8">${commonStyles}</head>
           <body>
-            <div class="header">
-              <h1>Reporte de Estado de Convenios</h1>
-              <span class="fecha">${data.fecha}</span>
-            </div>
-            <div class="summary">
-              <div class="summary-grid">
+            ${headerHtml}
+            <div class="main-content">
+              <h1 class="report-title">Estado de Convenios</h1>
+              <div class="summary">
                 <div class="summary-item"><div class="summary-value">{{total}}</div><div class="summary-label">Total Convenios</div></div>
                 <div class="summary-item"><div class="summary-value">{{porEstado.vigente}}</div><div class="summary-label">Vigentes</div></div>
                 <div class="summary-item"><div class="summary-value">{{porEstado.vencido}}</div><div class="summary-label">Vencidos</div></div>
                 <div class="summary-item"><div class="summary-value">{{porVencer60Dias}}</div><div class="summary-label">Por Vencer <60d</div></div>
               </div>
+              <h2>Por Tipo</h2>
+              <div class="grid-4">
+                <div class="card"><div class="card-value">{{porTipo.marco}}</div><div class="card-label">Marco</div></div>
+                <div class="card"><div class="card-value">{{porTipo.especifico}}</div><div class="card-label">Específico</div></div>
+              </div>
+              {{#if conveniosPorEmpresa.length}}
+              <h2>Detalle por Empresa</h2>
+              <table>
+                <tr><th>Empresa</th><th>Estado</th><th>Tipo</th><th>Inicio</th><th>Vencimiento</th><th>Días Rest.</th></tr>
+                {{#each conveniosPorEmpresa}}
+                <tr>
+                  <td>{{empresa}}</td>
+                  <td><span class="badge badge-{{estado}}">{{estado}}</span></td>
+                  <td>{{tipo}}</td>
+                  <td>{{fechaInicio}}</td>
+                  <td>{{fechaVencimiento}}</td>
+                  <td>{{diasRestantes}}</td>
+                </tr>
+                {{/each}}
+              </table>
+              {{/if}}
             </div>
-            <h2>Por Tipo</h2>
-            <div class="grid-4">
-              <div class="card"><div class="card-value">{{porTipo.marco}}</div><div class="card-label">Marco</div></div>
-              <div class="card"><div class="card-value">{{porTipo.especifico}}</div><div class="card-label">Específico</div></div>
-            </div>
-            {{#if conveniosPorEmpresa.length}}
-            <h2>Detalle por Empresa</h2>
-            <table>
-              <tr><th>Empresa</th><th>Estado</th><th>Tipo</th><th>Inicio</th><th>Vencimiento</th><th>Días Rest.</th></tr>
-              {{#each conveniosPorEmpresa}}
-              <tr>
-                <td>{{empresa}}</td>
-                <td><span class="badge badge-{{estado}}">{{estado}}</span></td>
-                <td>{{tipo}}</td>
-                <td>{{fechaInicio}}</td>
-                <td>{{fechaVencimiento}}</td>
-                <td>{{diasRestantes}}</td>
-              </tr>
-              {{/each}}
-            </table>
-            {{/if}}
+            ${footerHtml}
           </body>
         </html>
       `,
@@ -1615,209 +1944,216 @@ export class ReportsService {
   }
 
   renderFacultyTemplate(templateName: string, data: any): string {
+    const logoBase64 = this.getLogoBase64();
+    const logoHtml = logoBase64 ? `<img src="${logoBase64}" alt="Logo UNT" />` : '<div style="width:56px;height:56px;background:#1e40af;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border-radius:8px;">UNT</div>';
     const commonStyles = `
       <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body { 
-          font-family: 'Times New Roman', Times, serif; 
-          padding: 25px; 
-          color: #000000; 
-          line-height: 1.6; 
-          background: #ffffff;
-          font-size: 12pt;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          padding: 0;
+          color: #1a1a2e;
+          line-height: 1.6;
+          background: #fafbfc;
         }
-        .university-header {
-          text-align: center;
-          margin-bottom: 25px;
-          border-bottom: 2px solid #000000;
-          padding-bottom: 20px;
-          background: #ffffff;
-        }
-        .logo-container {
+        
+        /* Header Institucional */
+        .institutional-header {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          padding: 24px 32px;
+          border-bottom: 1px solid #e2e8f0;
           display: flex;
-          justify-content: center;
-          margin-bottom: 15px;
+          align-items: center;
+          gap: 20px;
         }
-        .university-logo {
-          width: 100px;
-          height: 100px;
+        
+        .logo-section {
+          flex-shrink: 0;
+        }
+        
+        .logo-section img {
+          width: 56px;
+          height: 56px;
           object-fit: contain;
         }
-        .university-header .logo-placeholder {
-          width: 100px;
-          height: 100px;
-          border: 2px solid #000000;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          font-size: 11pt;
-          color: #000000;
-          background: white;
-          font-weight: bold;
+        
+        .header-content {
+          flex: 1;
         }
-        .university-header h1 {
-          font-size: 20pt;
-          font-weight: bold;
-          margin-bottom: 8px;
-          text-transform: uppercase;
-          color: #000000;
-          letter-spacing: 1px;
-        }
-        .university-header h2 {
-          font-size: 16pt;
+        
+        .header-content h1 {
+          font-size: 13px;
           font-weight: 600;
-          margin-bottom: 5px;
-          color: #333333;
-        }
-        .university-header h3 {
-          font-size: 12pt;
-          font-weight: normal;
-          margin-bottom: 5px;
-          color: #666666;
-        }
-        .report-header {
-          text-align: center;
-          margin-bottom: 30px;
-          padding: 20px;
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-        }
-        .report-header h1 {
-          font-size: 18pt;
-          font-weight: bold;
-          margin-bottom: 10px;
+          color: #1e40af;
+          letter-spacing: 0.5px;
           text-transform: uppercase;
-          color: #000000;
+          margin-bottom: 2px;
         }
-        .report-info {
+        
+        .header-content h2 {
+          font-size: 18px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0;
+        }
+        
+        .header-content h3 {
+          font-size: 12px;
+          font-weight: 500;
+          color: #64748b;
+          margin-top: 2px;
+        }
+        
+        .header-meta {
+          text-align: right;
+          font-size: 12px;
+          color: #64748b;
+        }
+        
+        .header-meta .date {
+          font-weight: 500;
+          color: #334155;
+        }
+        
+        /* Main Content */
+        .main-content {
+          padding: 28px 32px;
+        }
+        
+        /* Report Title */
+        .report-title {
+          font-size: 22px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 24px;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #1e40af;
+          display: inline-block;
+        }
+        
+        /* Summary Cards */
+        .summary { 
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 16px;
+          margin: 20px 0 28px 0;
+        }
+        
+        .summary-item { 
+          background: #ffffff;
+          padding: 20px 16px;
+          border-radius: 12px;
           text-align: center;
-          margin-bottom: 25px;
-          font-size: 11pt;
-          padding: 15px;
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
         }
-        .report-info p {
-          margin-bottom: 5px;
+        
+        .summary-value { 
+          font-size: 28px; 
+          font-weight: 700; 
+          color: #1e40af;
+          line-height: 1.2;
         }
+        
+        .summary-label { 
+          font-size: 11px; 
+          font-weight: 500;
+          color: #64748b; 
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          margin-top: 6px;
+        }
+        
+        /* Section Title */
         .section-title { 
-          font-size: 14pt; 
-          font-weight: bold; 
-          margin: 30px 0 20px 0; 
-          text-align: center;
+          font-size: 14px;
+          font-weight: 600;
+          margin: 24px 0 12px 0;
           text-transform: uppercase;
-          border-bottom: 1px solid #000000;
-          padding-bottom: 10px;
-          color: #000000;
+          letter-spacing: 0.3px;
+          color: #334155;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 8px;
         }
+        
+        /* Table */
         table { 
           width: 100%; 
-          border-collapse: collapse; 
-          margin: 25px 0; 
-          font-size: 10pt;
-          border: 1px solid #000000;
+          border-collapse: separate;
+          border-spacing: 0;
+          margin: 16px 0;
+          font-size: 12px;
+          background: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
+        
         th { 
-          background: #f8f9fa; 
-          padding: 10px 8px; 
-          text-align: left; 
-          font-weight: bold; 
-          color: #000000;
+          background: #f8fafc;
+          color: #475569;
+          padding: 14px 12px;
+          text-align: left;
+          font-weight: 600;
+          font-size: 11px;
           text-transform: uppercase;
-          font-size: 9pt;
-          border: 1px solid #000000;
+          letter-spacing: 0.3px;
+          border-bottom: 1px solid #e2e8f0;
         }
+        
         td { 
-          padding: 8px; 
-          border: 1px solid #000000;
-          vertical-align: top;
-          background: white;
+          padding: 12px;
+          border-bottom: 1px solid #f1f5f9;
+          color: #334155;
         }
-        tr:nth-child(even) td {
-          background: #f8f9fa;
-        }
-        .no-data { 
-          text-align: center; 
-          padding: 25px; 
-          font-style: italic;
-          color: #666666;
-          background: #f8f9fa;
-        }
-        .summary-section {
-          margin: 25px 0;
-          padding: 20px;
-          border: 1px solid #000000;
-          background: #f8f9fa;
-        }
-        .summary-item {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 12px;
-          font-size: 11pt;
-          padding: 8px 0;
-          border-bottom: 1px solid #dee2e6;
-        }
-        .summary-item:last-child {
-          margin-bottom: 0;
+        
+        tr:last-child td {
           border-bottom: none;
         }
-        .summary-label {
-          font-weight: bold;
-          color: #000000;
+        
+        tr:nth-child(even) { 
+          background: #fafbfc; 
         }
-        .summary-value {
-          font-weight: bold;
-          color: #000000;
-        }
-        .footer { 
-          margin-top: 50px; 
+        
+        /* Empty State */
+        .no-data { 
           text-align: center; 
-          font-size: 9pt; 
-          border-top: 1px solid #000000;
-          padding-top: 15px;
-          color: #666666;
+          padding: 48px 24px;
+          color: #94a3b8;
+          font-size: 14px;
+          font-style: italic;
         }
-        .page-number {
+        
+        /* Footer */
+        .footer { 
+          margin-top: 40px;
+          padding: 16px 32px;
+          border-top: 1px solid #e2e8f0;
+          font-size: 11px;
+          color: #94a3b8;
           text-align: center;
-          margin-top: 25px;
-          font-size: 9pt;
-          color: #666666;
-        }
-        @media print {
-          body { margin: 0; padding: 15px; }
-          .page-number {
-            position: fixed;
-            bottom: 10px;
-            right: 0;
-            left: 0;
-          }
+          background: #ffffff;
         }
       </style>
     `;
 
     const header = `
-      <div class="university-header">
-        <div class="logo-container">
-          <img src="file:///d:/Proyects/unt-practicas-tesis/backend/src/assets/images/logo-unt.png" alt="Logo UNT" class="university-logo" 
-               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-          <div class="logo-placeholder">
-            LOGO UNT
-          </div>
+      <div class="institutional-header">
+        <div class="logo-section">
+          ${logoHtml}
         </div>
-        <h1>UNIVERSIDAD NACIONAL DE TRUJILLO</h1>
-        <h2>FACULTAD DE ${data.facultadNombre || 'INGENIERÍA'}</h2>
-        <h3>Sistema de Gestión de Prácticas y Tesis</h3>
-      </div>
-      
-      <div class="report-header">
-        <h1>${this.getReportTitle(templateName)}</h1>
-      </div>
-      
-      <div class="report-info">
-        <p><strong>Fecha de Generación:</strong> ${data.fecha || new Date().toLocaleDateString('es-PE')}</p>
-        <p><strong>Período:</strong> ${data.periodo || 'Todos los períodos'}</p>
-        ${data.facultadId ? `<p><strong>Código de Facultad:</strong> ${data.facultadId}</p>` : ''}
-        <p><strong>Generado por:</strong> Coordinador de Facultad</p>
+        <div class="header-content">
+          <h1>Universidad Nacional de Trujillo</h1>
+          <h2>${this.getReportTitle(templateName)} - ${data.facultadNombre || 'Facultad'}</h2>
+          <h3>Sistema de Gestión de Prácticas y Tesis</h3>
+        </div>
+        <div class="header-meta">
+          <div class="date">${data.fecha || new Date().toLocaleDateString('es-PE')}</div>
+          ${data.facultadId ? `<div>Facultad ID: ${data.facultadId}</div>` : ''}
+        </div>
       </div>
     `;
 
@@ -1852,23 +2188,23 @@ export class ReportsService {
   }
 
   private generateInternshipsTemplate(data: any, styles: string, header: string): string {
-    const summarySection = `
-      <div class="summary-section">
+    const summaryHtml = `
+      <div class="summary">
         <div class="summary-item">
-          <span class="summary-label">Total de Prácticas:</span>
-          <span class="summary-value">${data.total || 0}</span>
+          <div class="summary-value">${data.total || 0}</div>
+          <div class="summary-label">Total Prácticas</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Prácticas Activas:</span>
-          <span class="summary-value">${data.porEstado?.ACTIVA || 0}</span>
+          <div class="summary-value">${data.porEstado?.ACTIVA || 0}</div>
+          <div class="summary-label">Activas</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Prácticas Finalizadas:</span>
-          <span class="summary-value">${data.porEstado?.FINALIZADA || 0}</span>
+          <div class="summary-value">${data.porEstado?.FINALIZADA || 0}</div>
+          <div class="summary-label">Finalizadas</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Prácticas en Proceso:</span>
-          <span class="summary-value">${data.porEstado?.EN_PROCESO || 0}</span>
+          <div class="summary-value">${data.porEstado?.EN_PROCESO || 0}</div>
+          <div class="summary-label">En Proceso</div>
         </div>
       </div>
     `;
@@ -1894,52 +2230,52 @@ export class ReportsService {
       </head>
       <body>
         ${header}
-        ${summarySection}
-        <h2 class="section-title">RELACIÓN DE PRÁCTICAS PROFESIONALES</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Estudiante</th>
-              <th>Código</th>
-              <th>Empresa</th>
-              <th>Estado</th>
-              <th>Fecha Inicio</th>
-              <th>Fecha Fin</th>
-              <th>Asesor Académico</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-        <div class="footer">
-          <p>Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis</p>
-          <p>Reporte generado automáticamente el ${new Date().toLocaleDateString('es-PE')}</p>
+        <div class="main-content">
+          ${summaryHtml}
+          <h2 class="section-title">Relación de Prácticas Profesionales</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>Código</th>
+                <th>Empresa</th>
+                <th>Estado</th>
+                <th>Fecha Inicio</th>
+                <th>Fecha Fin</th>
+                <th>Asesor Académico</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
         </div>
-        <div class="page-number">Página 1</div>
+        <div class="footer">
+          Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis
+        </div>
       </body>
       </html>
     `;
   }
 
   private generateThesisTemplate(data: any, styles: string, header: string): string {
-    const summarySection = `
-      <div class="summary-section">
+    const summaryHtml = `
+      <div class="summary">
         <div class="summary-item">
-          <span class="summary-label">Total de Tesis:</span>
-          <span class="summary-value">${data.total || 0}</span>
+          <div class="summary-value">${data.total || 0}</div>
+          <div class="summary-label">Total Tesis</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">En Desarrollo:</span>
-          <span class="summary-value">${data.porEstado?.EN_DESARROLLO || 0}</span>
+          <div class="summary-value">${data.porEstado?.EN_DESARROLLO || 0}</div>
+          <div class="summary-label">En Desarrollo</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Aprobadas:</span>
-          <span class="summary-value">${data.porEstado?.APROBADO || 0}</span>
+          <div class="summary-value">${data.porEstado?.APROBADO || 0}</div>
+          <div class="summary-label">Aprobadas</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Sustentadas:</span>
-          <span class="summary-value">${data.porEstado?.SUSTENTADO || 0}</span>
+          <div class="summary-value">${data.porEstado?.SUSTENTADO || 0}</div>
+          <div class="summary-label">Sustentadas</div>
         </div>
       </div>
     `;
@@ -1965,52 +2301,52 @@ export class ReportsService {
       </head>
       <body>
         ${header}
-        ${summarySection}
-        <h2 class="section-title">RELACIÓN DE PROYECTOS DE TESIS</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Título de Tesis</th>
-              <th>Estudiante</th>
-              <th>Código</th>
-              <th>Área</th>
-              <th>Estado</th>
-              <th>Asesor</th>
-              <th>Fecha Registro</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-        <div class="footer">
-          <p>Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis</p>
-          <p>Reporte generado automáticamente el ${new Date().toLocaleDateString('es-PE')}</p>
+        <div class="main-content">
+          ${summaryHtml}
+          <h2 class="section-title">Relación de Proyectos de Tesis</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Estudiante</th>
+                <th>Código</th>
+                <th>Área</th>
+                <th>Estado</th>
+                <th>Asesor</th>
+                <th>Fecha Registro</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
         </div>
-        <div class="page-number">Página 1</div>
+        <div class="footer">
+          Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis
+        </div>
       </body>
       </html>
     `;
   }
 
   private generateStudentsTemplate(data: any, styles: string, header: string): string {
-    const summarySection = `
-      <div class="summary-section">
+    const summaryHtml = `
+      <div class="summary">
         <div class="summary-item">
-          <span class="summary-label">Total de Estudiantes:</span>
-          <span class="summary-value">${data.total || 0}</span>
+          <div class="summary-value">${data.total || 0}</div>
+          <div class="summary-label">Total Estudiantes</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Estudiantes Activos:</span>
-          <span class="summary-value">${data.items?.filter((e: any) => e.activo).length || 0}</span>
+          <div class="summary-value">${data.items?.filter((e: any) => e.activo).length || 0}</div>
+          <div class="summary-label">Activos</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">En Prácticas:</span>
-          <span class="summary-value">${data.enPractica || 0}</span>
+          <div class="summary-value">${data.enPractica || 0}</div>
+          <div class="summary-label">En Prácticas</div>
         </div>
         <div class="summary-item">
-          <span class="summary-label">En Tesis:</span>
-          <span class="summary-value">${data.enTesis || 0}</span>
+          <div class="summary-value">${data.enTesis || 0}</div>
+          <div class="summary-label">En Tesis</div>
         </div>
       </div>
     `;
@@ -2023,7 +2359,7 @@ export class ReportsService {
         <td>${item.anioIngreso || 'N/A'}</td>
         <td>${item.promedioGeneral || 'N/A'}</td>
         <td>${item.creditosAprobados || 'N/A'}</td>
-        <td>${item.activo ? 'ACTIVO' : 'INACTIVO'}</td>
+        <td>${item.activo ? 'Activo' : 'Inactivo'}</td>
       </tr>
     `).join('') || '<tr><td colspan="7" class="no-data">No hay datos disponibles</td></tr>';
 
@@ -2036,44 +2372,44 @@ export class ReportsService {
       </head>
       <body>
         ${header}
-        ${summarySection}
-        <h2 class="section-title">RELACIÓN DE ESTUDIANTES</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre Completo</th>
-              <th>Código Universitario</th>
-              <th>Carrera</th>
-              <th>Año Ingreso</th>
-              <th>Promedio</th>
-              <th>Créditos Aprobados</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-        <div class="footer">
-          <p>Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis</p>
-          <p>Reporte generado automáticamente el ${new Date().toLocaleDateString('es-PE')}</p>
+        <div class="main-content">
+          ${summaryHtml}
+          <h2 class="section-title">Relación de Estudiantes</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre Completo</th>
+                <th>Código Universitario</th>
+                <th>Carrera</th>
+                <th>Año Ingreso</th>
+                <th>Promedio</th>
+                <th>Créditos</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
         </div>
-        <div class="page-number">Página 1</div>
+        <div class="footer">
+          Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis
+        </div>
       </body>
       </html>
     `;
   }
 
   private generateAdvisorsTemplate(data: any, styles: string, header: string): string {
-    const summaryCards = `
-      <div class="summary-grid">
-        <div class="summary-card">
-          <h3>${data.total || 0}</h3>
-          <p>Total de Docentes</p>
+    const summaryHtml = `
+      <div class="summary">
+        <div class="summary-item">
+          <div class="summary-value">${data.total || 0}</div>
+          <div class="summary-label">Total Docentes</div>
         </div>
-        <div class="summary-card">
-          <h3>${data.conCarga || 0}</h3>
-          <p>Con Carga Asignada</p>
+        <div class="summary-item">
+          <div class="summary-value">${data.conCarga || 0}</div>
+          <div class="summary-label">Con Carga</div>
         </div>
       </div>
     `;
@@ -2085,7 +2421,7 @@ export class ReportsService {
         <td>${item.especialidad || 'N/A'}</td>
         <td>${item.categoria || 'N/A'}</td>
         <td>${item.cargaTotal || 0}</td>
-        <td><span class="status-${item.activo ? 'active' : 'inactive'}">${item.activo ? 'Activo' : 'Inactivo'}</span></td>
+        <td>${item.activo ? 'Activo' : 'Inactivo'}</td>
       </tr>
     `).join('') || '<tr><td colspan="6" class="no-data">No hay datos disponibles</td></tr>';
 
@@ -2098,25 +2434,27 @@ export class ReportsService {
       </head>
       <body>
         ${header}
-        ${summaryCards}
-        <h2 class="section-title">👨‍🏫 Lista de Docentes/Asesores</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Email</th>
-              <th>Especialidad</th>
-              <th>Categoría</th>
-              <th>Carga Total</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
+        <div class="main-content">
+          ${summaryHtml}
+          <h2 class="section-title">Lista de Docentes y Asesores</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Especialidad</th>
+                <th>Categoría</th>
+                <th>Carga</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
         <div class="footer">
-          <p>Reporte generado automáticamente por el Sistema de Gestión de Prácticas y Tesis</p>
+          Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis
         </div>
       </body>
       </html>
@@ -2124,15 +2462,15 @@ export class ReportsService {
   }
 
   private generateAgreementsTemplate(data: any, styles: string, header: string): string {
-    const summaryCards = `
-      <div class="summary-grid">
-        <div class="summary-card">
-          <h3>${data.total || 0}</h3>
-          <p>Total de Convenios</p>
+    const summaryHtml = `
+      <div class="summary">
+        <div class="summary-item">
+          <div class="summary-value">${data.total || 0}</div>
+          <div class="summary-label">Total Convenios</div>
         </div>
-        <div class="summary-card">
-          <h3>${data.porVencer30Dias || 0}</h3>
-          <p>Por Vencer (30 días)</p>
+        <div class="summary-item">
+          <div class="summary-value">${data.porVencer30Dias || 0}</div>
+          <div class="summary-label">Por Vencer</div>
         </div>
       </div>
     `;
@@ -2144,7 +2482,7 @@ export class ReportsService {
         <td>${item.fechaInicio ? new Date(item.fechaInicio).toLocaleDateString('es-PE') : 'N/A'}</td>
         <td>${item.fechaVencimiento ? new Date(item.fechaVencimiento).toLocaleDateString('es-PE') : 'N/A'}</td>
         <td>${item.diasRestantes || 'N/A'}</td>
-        <td><span class="status-${item.alerta === 'normal' ? 'active' : 'pending'}">${item.alerta || 'N/A'}</span></td>
+        <td>${item.alerta || 'N/A'}</td>
       </tr>
     `).join('') || '<tr><td colspan="6" class="no-data">No hay datos disponibles</td></tr>';
 
@@ -2157,25 +2495,27 @@ export class ReportsService {
       </head>
       <body>
         ${header}
-        ${summaryCards}
-        <h2 class="section-title">🤝 Lista de Convenios</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Empresa</th>
-              <th>Tipo</th>
-              <th>Fecha Inicio</th>
-              <th>Fecha Vencimiento</th>
-              <th>Días Restantes</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
+        <div class="main-content">
+          ${summaryHtml}
+          <h2 class="section-title">Lista de Convenios</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th>Tipo</th>
+                <th>Inicio</th>
+                <th>Vencimiento</th>
+                <th>Días Rest.</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
         <div class="footer">
-          <p>Reporte generado automáticamente por el Sistema de Gestión de Prácticas y Tesis</p>
+          Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis
         </div>
       </body>
       </html>
@@ -2183,23 +2523,23 @@ export class ReportsService {
   }
 
   private generateStatsTemplate(data: any, styles: string, header: string): string {
-    const summaryCards = `
-      <div class="summary-grid">
-        <div class="summary-card">
-          <h3>${data.practicas?.total || 0}</h3>
-          <p>Total de Prácticas</p>
+    const summaryHtml = `
+      <div class="summary">
+        <div class="summary-item">
+          <div class="summary-value">${data.practicas?.total || 0}</div>
+          <div class="summary-label">Prácticas</div>
         </div>
-        <div class="summary-card">
-          <h3>${data.tesis?.total || 0}</h3>
-          <p>Total de Tesis</p>
+        <div class="summary-item">
+          <div class="summary-value">${data.tesis?.total || 0}</div>
+          <div class="summary-label">Tesis</div>
         </div>
-        <div class="summary-card">
-          <h3>${data.estudiantes?.total || 0}</h3>
-          <p>Total de Estudiantes</p>
+        <div class="summary-item">
+          <div class="summary-value">${data.estudiantes?.total || 0}</div>
+          <div class="summary-label">Estudiantes</div>
         </div>
-        <div class="summary-card">
-          <h3>${data.docentes?.total || 0}</h3>
-          <p>Total de Docentes</p>
+        <div class="summary-item">
+          <div class="summary-value">${data.docentes?.total || 0}</div>
+          <div class="summary-label">Docentes</div>
         </div>
       </div>
     `;
@@ -2229,8 +2569,9 @@ export class ReportsService {
       </head>
       <body>
         ${header}
-        ${summaryCards}
-        <h2 class="section-title">📈 Detalle de Estadísticas</h2>
+        <div class="main-content">
+          ${summaryHtml}
+          <h2 class="section-title">Detalle de Estadísticas</h2>
         <table>
           <thead>
             <tr>
@@ -2244,8 +2585,9 @@ export class ReportsService {
             ${tesisDetails}
           </tbody>
         </table>
+        </div>
         <div class="footer">
-          <p>Reporte generado automáticamente por el Sistema de Gestión de Prácticas y Tesis</p>
+          Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis
         </div>
       </body>
       </html>

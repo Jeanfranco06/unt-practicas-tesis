@@ -1,0 +1,58 @@
+# Etapa de construcción
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+ARG NODE_ENV=production
+ENV NODE_ENV=$NODE_ENV
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar dependencias para construcción
+RUN npm ci
+
+# Copiar código fuente
+COPY . .
+
+# Construir la aplicación
+RUN npm run build
+
+# Etapa de producción
+FROM node:18-alpine AS production
+
+WORKDIR /app
+
+ARG NODE_ENV=production
+ENV NODE_ENV=$NODE_ENV
+
+# Crear usuario no root
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Instalar dumb-init para manejo adecuado de señales
+RUN apk add --no-cache dumb-init curl
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar solo dependencias de producción
+RUN npm ci --only=production && npm cache clean --force
+
+# Copiar código construido
+COPY --from=builder /app/dist ./dist
+
+# Copiar otros archivos necesarios
+COPY --chown=nodejs:nodejs . .
+
+# Cambiar al usuario no root
+USER nodejs
+
+# Exponer puerto
+EXPOSE 3000
+
+# Usar dumb-init como init para manejo de señales
+ENTRYPOINT ["dumb-init", "--"]
+
+# Comando de inicio
+CMD ["npm", "run", "start:prod"]
