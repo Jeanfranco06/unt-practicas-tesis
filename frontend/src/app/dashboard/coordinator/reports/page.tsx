@@ -404,14 +404,14 @@ export default function CoordinatorReportsPage() {
                 </div>
                 
                 {/* Value */}
-                <div className="space-y-1">
-                  <p className="text-3xl font-bold bg-gradient-to-br text-transparent bg-clip-text">
-                    {isLoadingStats ? (
-                      <div className="w-16 h-8 bg-muted rounded-lg animate-pulse" />
-                    ) : (
-                      stat.value
-                    )}
-                  </p>
+                <div className="space-y-1" suppressHydrationWarning>
+                  {isLoadingStats ? (
+                    <div className="w-16 h-8 bg-muted rounded-lg animate-pulse" />
+                  ) : (
+                    <p className="text-3xl font-bold bg-gradient-to-br text-transparent bg-clip-text">
+                      {stat.value}
+                    </p>
+                  )}
                   <p className="text-sm font-medium text-foreground">{stat.label}</p>
                   <p className="text-xs text-muted-foreground">{stat.description}</p>
                 </div>

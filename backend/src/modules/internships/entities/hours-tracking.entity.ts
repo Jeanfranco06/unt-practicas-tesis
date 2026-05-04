@@ -19,7 +19,7 @@ export class HoursTracking {
   @Column({ type: 'int' })
   horas: number;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'descripcion_actividad', type: 'text' })
   descripcionActividad: string;
 
   @Column({ name: 'evidencia_url', nullable: true, length: 500 })
