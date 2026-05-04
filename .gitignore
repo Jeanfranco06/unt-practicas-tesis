@@ -59,8 +59,10 @@ create-db.sql
 drop-*.sql
 fix-*.sql
 
-# Docker local configuration
-docker-compose*.yml
+# Docker local configuration (pero INCLUIR production config)
+# docker-compose.yml es local
+# docker-compose.prod.yml es NECESARIO para deployment
+!docker-compose.prod.yml
 
 # Package locks
 package-lock.json

@@ -1,46 +1,45 @@
-# Guía Rápida: 5 Pasos para Deploy en la Nube
+# 🚀 Guía Rápida: Deploy en la Nube
 
-## ⚡ Quick Start (30 minutos)
+## ⭐ OPCIÓN GRATIS (Recomendada para Estudiantes)
 
-### Paso 1: Preparar ambiente local ✓
+### Oracle Cloud Always Free - $0 SIEMPRE
+
+**Tiempo: 30 minutos | Costo: $0 FOREVER**
+
 ```bash
-# Clonar repo
-git clone <repo-url>
-cd unt-practicas-tesis
+# 1. Crear cuenta: https://www.oracle.com/cloud/free
+# 2. Crear VM Ubuntu 22.04
+# 3. SSH a VM:
+ssh -i tu-clave.key ubuntu@IP-PUBLICA
 
-# Verificar que todo funciona localmente
-docker-compose up -d
-# Visitar http://localhost:3001
-# Login con admin@unt.edu.pe / password123
+# 4. En la VM ejecutar esto:
+git clone https://github.com/TU-USUARIO/unt-practicas-tesis.git app && cd app && \
+curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh && rm get-docker.sh && \
+sudo usermod -aG docker ubuntu && newgrp docker && \
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
+sudo chmod +x /usr/local/bin/docker-compose && \
+cp .env.prod.example .env.prod && \
+nano .env.prod  # Cambiar secretos
+
+# 5. Editar .env.prod (cambiar DB_PASSWORD, JWT_SECRET, etc)
+# 6. Levantar:
+docker-compose -f docker-compose.prod.yml up -d
+
+# 7. Verificar:
+docker ps
+curl http://localhost:3001
 ```
 
-### Paso 2: Ejecutar script de preparación ✓
-```bash
-# Windows
-.\scripts\prepare-cloud-deployment.bat
+✅ **[Ver guía detallada Oracle](ORACLE_CLOUD_STEP_BY_STEP.md)**
 
-# Linux/Mac
-chmod +x scripts/prepare-cloud-deployment.sh
-./scripts/prepare-cloud-deployment.sh
-```
+---
 
-### Paso 3: Configurar secretos ✓
-```bash
-# Editar archivo .env.prod
-nano .env.prod  # o notepad en Windows
+## 📋 Otras Opciones (Con Trial/Créditos)
 
-# CAMBIAR ESTOS VALORES (mínimo 32 caracteres cada uno):
-DB_PASSWORD=CAMBIAR_A_CONTRASEÑA_FUERTE
-JWT_SECRET=CAMBIAR_A_SECRETO_ALEATORIO_LARGO
-JWT_REFRESH_SECRET=CAMBIAR_A_OTRO_SECRETO_ALEATORIO
-REDIS_PASSWORD=CAMBIAR_A_CONTRASEÑA_FUERTE
-API_URL=https://api.TUDOMAIN.COM
-FRONTEND_URL=https://TUDOMAIN.COM
-```
+### Opción B: Google Cloud Run ($300 créditos / 90 días)
 
-### Paso 4: Elegir plataforma cloud y configurar ✓
+**Tiempo: 10-15 minutos | Costo: $0 primeros 90 días**
 
-**OPCIÓN A: Google Cloud Run (Recomendado para empezar)**
 ```bash
 # Setup (5 min)
 gcloud auth login

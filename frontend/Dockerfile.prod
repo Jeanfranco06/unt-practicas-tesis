@@ -1,16 +1,24 @@
 # Etapa de construcción
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
 ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
 
+# Instalar build essentials para módulos nativos
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copiar package files
 COPY package*.json ./
 
 # Instalar dependencias
-RUN npm ci
+RUN npm ci --unsafe-perm
+
+# Auditar y arreglar vulnerabilidades (non-breaking changes)
+RUN npm audit fix || true
 
 # Copiar código fuente
 COPY . .
@@ -19,7 +27,7 @@ COPY . .
 RUN npm run build
 
 # Etapa de producción
-FROM node:18-alpine AS production
+FROM node:18-slim AS production
 
 WORKDIR /app
 
@@ -27,11 +35,12 @@ ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
 
 # Crear usuario no root
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+RUN groupadd -g 1001 nodejs && useradd -r -u 1001 -g nodejs nodejs
 
 # Instalar dumb-init para manejo de señales
-RUN apk add --no-cache dumb-init curl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copiar package files
 COPY package*.json ./

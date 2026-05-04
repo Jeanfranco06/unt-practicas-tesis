@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database - Production
+  postgres:
+    image: postgres:15-alpine
+    container_name: unt-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      LANG: es_ES.UTF-8
+      LC_ALL: es_ES.UTF-8
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=es_ES.UTF-8"
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./init-scripts/01-init-normalized.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./init-scripts/03-test-data.sql:/docker-entrypoint-initdb.d/03-test-data.sql
+      - ./fix-utf8-complete.sql:/docker-entrypoint-initdb.d/99-fix-utf8.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Backend API - Production
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+      args:
+        NODE_ENV: production
+    container_name: unt-backend-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      API_URL: ${API_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Frontend - Production
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NODE_ENV: production
+        NEXT_PUBLIC_API_URL: ${API_URL}
+    container_name: unt-frontend-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${API_URL}
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache - Production
+  redis:
+    image: redis:7-alpine
+    container_name: unt-redis-prod
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Reverse Proxy (Opcional pero recomendado)
+  nginx:
+    image: nginx:alpine
+    container_name: unt-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data_prod:
+    driver: local
+  redis_data_prod:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
