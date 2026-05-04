@@ -85,7 +85,7 @@ async function bootstrap() {
   
 
   
-  const port = Number(process.env.PORT) || 4000;
+  const port = Number(process.env.PORT) || 8080;
   await app.listen(port);
   console.log(`🚀 Backend running on http://localhost:${port}`);
   console.log(`📡 tRPC endpoint: http://localhost:${port}/api/trpc`);
