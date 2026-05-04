@@ -13,8 +13,8 @@ coverage/
 .next-dev/
 
 # Environment variables
-#.env
-#.env.*.local
+.env
+.env.*.local
 
 # OS files
 .DS_Store
@@ -39,3 +39,27 @@ fix-*.bat
 
 # Test files
 test-login.js
+
+# Documentation and reports (generated/local)
+ADMIN_USER_CREATION_FLOW.md
+DATABASE_NORMALIZATION_SUMMARY.md
+DEPLOYMENT_GUIDE.md
+DOCKER_SETUP.md
+ESTRUCTURA_MODULAR.md
+MANUAL_TESTING.md
+QA_TESTING_REPORT.md
+TESTING_*.md
+USER_MANAGEMENT_FLOW.md
+UTF8-ENCODING-FIX.md
+
+# Database scripts (temporary)
+create-db.sql
+*.sql
+drop-*.sql
+fix-*.sql
+
+# Docker local configuration
+docker-compose*.yml
+
+# Package locks
+package-lock.json
