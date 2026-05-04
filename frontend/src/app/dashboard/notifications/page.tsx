@@ -15,9 +15,13 @@ import {
   Filter,
   Trash2,
   RefreshCw,
+  ArchiveRestore,
+  MailOpen,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useEffect } from 'react';
 
 const getNotificationIcon = (tipo: string, prioridad: string) => {
   const colorClass =
@@ -94,26 +98,41 @@ const itemVariants = {
 export default function NotificationsPage() {
   const {
     notifications,
+    archivedNotifications,
     unreadCount,
     isLoading,
+    isLoadingArchived,
     fetchNotifications,
+    fetchArchived,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     archiveNotification,
+    unarchiveNotification,
+    deleteNotification,
   } = useNotifications();
 
-  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'archived'>('all');
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (filter === 'unread') return !n.leida;
-    if (filter === 'read') return n.leida;
-    return true;
-  });
+  useEffect(() => {
+    if (filter === 'archived') {
+      fetchArchived();
+    }
+  }, [filter, fetchArchived]);
+
+  const displayedNotifications = filter === 'archived'
+    ? archivedNotifications
+    : notifications.filter((n) => {
+        if (filter === 'unread') return !n.leida;
+        if (filter === 'read') return n.leida;
+        return true;
+      });
 
   const stats = {
     total: notifications.length,
     unread: notifications.filter((n) => !n.leida).length,
     read: notifications.filter((n) => n.leida).length,
+    archived: archivedNotifications.length,
   };
 
   return (
@@ -155,23 +174,18 @@ export default function NotificationsPage() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: stats.total, color: 'bg-primary' },
-          { label: 'Sin leer', value: stats.unread, color: 'bg-amber-500' },
-          { label: 'Leídas', value: stats.read, color: 'bg-emerald-500' },
+          { label: 'Total', value: stats.total, color: 'bg-primary', filter: 'all' },
+          { label: 'Sin leer', value: stats.unread, color: 'bg-amber-500', filter: 'unread' },
+          { label: 'Leídas', value: stats.read, color: 'bg-emerald-500', filter: 'read' },
+          { label: 'Archivadas', value: stats.archived, color: 'bg-slate-500', filter: 'archived' },
         ].map((stat) => (
           <button
             key={stat.label}
-            onClick={() => {
-              if (stat.label === 'Total') setFilter('all');
-              else if (stat.label === 'Sin leer') setFilter('unread');
-              else if (stat.label === 'Leídas') setFilter('read');
-            }}
+            onClick={() => setFilter(stat.filter as any)}
             className={`p-4 bg-card rounded-xl border transition-all ${
-              (filter === 'all' && stat.label === 'Total') ||
-              (filter === 'unread' && stat.label === 'Sin leer') ||
-              (filter === 'read' && stat.label === 'Leídas')
+              filter === stat.filter
                 ? 'border-primary shadow-soft'
                 : 'border-border hover:border-border/60'
             }`}
@@ -185,23 +199,25 @@ export default function NotificationsPage() {
       </motion.div>
 
       {/* Filter Tabs */}
-      <motion.div variants={itemVariants} className="flex items-center gap-2">
+      <motion.div variants={itemVariants} className="flex items-center gap-2 flex-wrap">
         <Filter className="w-4 h-4 text-muted-foreground" />
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {[
-            { key: 'all', label: 'Todas' },
-            { key: 'unread', label: 'Sin leer' },
-            { key: 'read', label: 'Leídas' },
+            { key: 'all', label: 'Todas', icon: Bell },
+            { key: 'unread', label: 'Sin leer', icon: Mail },
+            { key: 'read', label: 'Leídas', icon: MailOpen },
+            { key: 'archived', label: 'Archivadas', icon: Archive },
           ].map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key as any)}
-              className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+              className={`px-3 py-1.5 text-sm rounded-full transition-all flex items-center gap-1.5 ${
                 filter === f.key
                   ? 'bg-primary text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             >
+              <f.icon className="w-3.5 h-3.5" />
               {f.label}
             </button>
           ))}
@@ -210,12 +226,17 @@ export default function NotificationsPage() {
 
       {/* Notifications List */}
       <motion.div variants={itemVariants} className="space-y-3">
-        {isLoading ? (
+        {filter === 'archived' && isLoadingArchived ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+            <p className="text-muted-foreground mt-4">Cargando archivadas...</p>
+          </div>
+        ) : isLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="text-muted-foreground mt-4">Cargando notificaciones...</p>
           </div>
-        ) : filteredNotifications.length === 0 ? (
+        ) : displayedNotifications.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Bell className="w-16 h-16 mx-auto mb-4 opacity-40" />
             <p className="text-lg font-medium">No hay notificaciones</p>
@@ -224,12 +245,14 @@ export default function NotificationsPage() {
                 ? 'No tienes notificaciones sin leer'
                 : filter === 'read'
                 ? 'No tienes notificaciones leídas'
+                : filter === 'archived'
+                ? 'No tienes notificaciones archivadas'
                 : 'No tienes notificaciones'}
             </p>
           </div>
         ) : (
           <AnimatePresence>
-            {filteredNotifications.map((notification) => (
+            {displayedNotifications.map((notification) => (
               <motion.div
                 key={notification.id}
                 variants={itemVariants}
@@ -237,7 +260,9 @@ export default function NotificationsPage() {
                 animate="visible"
                 exit={{ opacity: 0, x: -100 }}
                 className={`p-4 bg-card rounded-xl border transition-all ${
-                  !notification.leida
+                  filter === 'archived'
+                    ? 'border-border/50 bg-muted/30'
+                    : !notification.leida
                     ? 'border-primary/30 bg-primary/5'
                     : 'border-border'
                 }`}
@@ -254,7 +279,11 @@ export default function NotificationsPage() {
                         </span>
                         <h3
                           className={`font-semibold ${
-                            !notification.leida ? 'text-foreground' : 'text-muted-foreground'
+                            filter === 'archived'
+                              ? 'text-muted-foreground'
+                              : !notification.leida
+                              ? 'text-foreground'
+                              : 'text-muted-foreground'
                           }`}
                         >
                           {notification.titulo}
@@ -280,27 +309,63 @@ export default function NotificationsPage() {
                         </pre>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mt-3">
-                      {!notification.leida && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => markAsRead(notification.id)}
-                          className="text-xs h-7 text-primary"
-                        >
-                          <Check className="w-3 h-3 mr-1" />
-                          Marcar como leída
-                        </Button>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      {filter !== 'archived' && (
+                        <>
+                          {!notification.leida ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => markAsRead(notification.id)}
+                              className="text-xs h-7 text-primary"
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Marcar como leída
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => markAsUnread(notification.id)}
+                              className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                            >
+                              <Mail className="w-3 h-3 mr-1" />
+                              Marcar como no leída
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => archiveNotification(notification.id)}
+                            className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                          >
+                            <Archive className="w-3 h-3 mr-1" />
+                            Archivar
+                          </Button>
+                        </>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => archiveNotification(notification.id)}
-                        className="text-xs h-7 text-muted-foreground hover:text-foreground"
-                      >
-                        <Archive className="w-3 h-3 mr-1" />
-                        Archivar
-                      </Button>
+                      {filter === 'archived' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => unarchiveNotification(notification.id)}
+                            className="text-xs h-7 text-primary"
+                          >
+                            <ArchiveRestore className="w-3 h-3 mr-1" />
+                            Desarchivar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteNotification(notification.id)}
+                            className="text-xs h-7 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Eliminar
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

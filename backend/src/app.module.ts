@@ -11,6 +11,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { TrpcModule } from './modules/trpc/trpc.module';
 import { HealthModule } from './common/health/health.module';
+import { AcademicModule } from './modules/academic/academic.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
@@ -27,8 +28,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // desarrollo: crea tablas automáticamente
+        synchronize: false, // desactivado: usa esquema SQL de inicialización
         logging: true,
+        extra: {
+          client_encoding: 'UTF8',
+        },
       }),
     }),
     AuthModule,
@@ -41,6 +45,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     NotificationsModule,
     ReportsModule,
     DashboardModule,
+    AcademicModule,
     TrpcModule,
     HealthModule,
   ],

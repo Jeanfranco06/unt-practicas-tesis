@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 
 export enum TipoConvenio {
@@ -9,7 +9,26 @@ export enum TipoConvenio {
 export enum EstadoConvenio {
   VIGENTE = 'vigente',
   VENCIDO = 'vencido',
-  RENOVADO = 'renovado',
+  CANCELADO = 'cancelado',
+}
+
+// Helper para calcular el estado real basado en la fecha
+export function calcularEstadoConvenio(fechaVencimiento: Date): EstadoConvenio {
+  const hoy = new Date();
+  const vencimiento = new Date(fechaVencimiento);
+  return vencimiento >= hoy ? EstadoConvenio.VIGENTE : EstadoConvenio.VENCIDO;
+}
+
+// Helper para normalizar estados antiguos (migración de datos)
+export function normalizarEstadoConvenio(estadoAlmacenado: string, fechaVencimiento: Date): EstadoConvenio {
+  // Estado cancelado se respeta siempre
+  if (estadoAlmacenado === EstadoConvenio.CANCELADO) {
+    return EstadoConvenio.CANCELADO;
+  }
+  
+  // Estados antiguos o vigente/vencido se calculan por fecha
+  // 'renovado' (antiguo) se trata como vigente/vencido según fecha
+  return calcularEstadoConvenio(fechaVencimiento);
 }
 
 @Entity('convenio')
@@ -21,13 +40,19 @@ export class Agreement {
   empresaId: number;
 
   @ManyToOne(() => Company, (company) => company.convenios)
+  @JoinColumn({ name: 'empresa_id' })
   empresa: Company;
 
   @Column({ type: 'enum', enum: TipoConvenio })
   tipo: TipoConvenio;
 
-  @Column({ name: 'objeto_contrato', type: 'text' })
-  objetoContrato: string;
+  @Column({ type: 'text', name: 'objeto' })
+  objeto: string;
+
+  // Getter para compatibilidad con DTO
+  get objetoContrato(): string {
+    return this.objeto;
+  }
 
   @Column({ name: 'fecha_inicio', type: 'date' })
   fechaInicio: Date;
@@ -37,6 +62,11 @@ export class Agreement {
 
   @Column({ type: 'enum', enum: EstadoConvenio, default: EstadoConvenio.VIGENTE })
   estado: EstadoConvenio;
+
+  // Método para obtener el estado real calculado
+  getEstadoReal(): EstadoConvenio {
+    return calcularEstadoConvenio(this.fechaVencimiento);
+  }
 
   @Column({ name: 'documento_url', nullable: true, length: 500 })
   documentoUrl: string;

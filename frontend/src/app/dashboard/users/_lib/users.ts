@@ -8,21 +8,24 @@ export enum RolUsuario {
   ASESOR = 'Asesor',
   ESTUDIANTE = 'Estudiante',
   REPRESENTANTE_EMPRESA = 'RepresentanteEmpresa',
+  SIN_ROL = 'SinRol',
 }
 
 export interface User {
   id: number;
-  email: string;
+  email: string;  // Email institucional generado automáticamente
+  emailRecuperacion?: string;  // Email personal para recuperación
   nombre: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
   rol: RolUsuario;
+  roles?: Array<{ id: number; nombre: string; descripcion?: string; activo: boolean }>;
   activo: boolean;
   creadoEn?: string;
 }
 
 export interface CreateUserData {
-  email: string;
+  emailRecuperacion: string;  // Email personal para recuperación (obligatorio)
   contrasenaHash: string;
   nombre: string;
   apellidoPaterno: string;
@@ -36,7 +39,6 @@ export interface UpdateUserData {
   nombre?: string;
   apellidoPaterno?: string;
   apellidoMaterno?: string;
-  rol?: RolUsuario;
   activo?: boolean;
   contrasenaHash?: string;
 }
@@ -47,6 +49,7 @@ export const rolColors: Record<RolUsuario, string> = {
   [RolUsuario.ASESOR]: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400',
   [RolUsuario.ESTUDIANTE]: 'bg-amber-500/20 text-amber-600 dark:text-amber-400',
   [RolUsuario.REPRESENTANTE_EMPRESA]: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400',
+  [RolUsuario.SIN_ROL]: 'bg-slate-500/20 text-slate-600 dark:text-slate-400',
 };
 
 export const rolLabels: Record<RolUsuario, string> = {
@@ -55,6 +58,7 @@ export const rolLabels: Record<RolUsuario, string> = {
   [RolUsuario.ASESOR]: 'Asesor',
   [RolUsuario.ESTUDIANTE]: 'Estudiante',
   [RolUsuario.REPRESENTANTE_EMPRESA]: 'Representante',
+  [RolUsuario.SIN_ROL]: 'Sin Rol',
 };
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -92,25 +96,42 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   return JSON.parse(text);
 }
 
+// Helper function to transform backend user data to frontend format
+function transformUser(user: any): User {
+  // Backend has direct rol field, frontend expects RolUsuario enum
+  // Si el usuario no tiene rol asignado (null), se marca como SIN_ROL
+  const rol = user.rol || RolUsuario.SIN_ROL;
+
+  return {
+    ...user,
+    rol: rol as RolUsuario,
+    roles: user.roles || [],
+  };
+}
+
 export async function getUsers(): Promise<User[]> {
-  return fetchWithAuth(`${API_URL}/api/users`);
+  const users = await fetchWithAuth(`${API_URL}/api/users`);
+  return Array.isArray(users) ? users.map(transformUser) : [];
 }
 
 export async function getUser(id: number): Promise<User> {
-  return fetchWithAuth(`${API_URL}/api/users/${id}`);
+  const user = await fetchWithAuth(`${API_URL}/api/users/${id}`);
+  return transformUser(user);
 }
 
-export async function createUser(data: CreateUserData): Promise<User> {
+export async function createUser(userData: CreateUserData): Promise<User> {
   return fetchWithAuth(`${API_URL}/api/users`, {
     method: 'POST',
-    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData),
   });
 }
 
-export async function updateUser(id: number, data: UpdateUserData): Promise<User> {
+export async function updateUser(id: number, userData: Partial<CreateUserData>): Promise<User> {
   return fetchWithAuth(`${API_URL}/api/users/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData),
   });
 }
 
@@ -151,7 +172,15 @@ export function filterUsers(users: User[], searchTerm: string, roleFilter: strin
       user.nombre?.toLowerCase().includes(searchLower) ||
       user.apellidoPaterno?.toLowerCase().includes(searchLower) ||
       user.email?.toLowerCase().includes(searchLower);
-    const matchesRole = roleFilter === 'todos' || user.rol === roleFilter;
+    
+    let matchesRole = roleFilter === 'todos';
+    if (!matchesRole && user.roles) {
+      matchesRole = user.roles.some(role => role.nombre === roleFilter);
+    }
+    if (!matchesRole) {
+      matchesRole = user.rol === roleFilter;
+    }
+    
     const matchesStatus = statusFilter === 'todos' || (statusFilter === 'activo' && user.activo) || (statusFilter === 'inactivo' && !user.activo);
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -163,6 +192,7 @@ export const rolSelectOptions = [
   { value: RolUsuario.ASESOR, label: 'Asesor' },
   { value: RolUsuario.ESTUDIANTE, label: 'Estudiante' },
   { value: RolUsuario.REPRESENTANTE_EMPRESA, label: 'Representante de Empresa' },
+  { value: RolUsuario.SIN_ROL, label: 'Sin Rol (Sin acceso)' },
 ];
 
 export const statusOptions = [

@@ -7,7 +7,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  User,
   Edit,
   Save,
   X,
@@ -15,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { API_URL, fetchWithAuth } from '../_lib/api';
 import type { Company } from '../_lib/api';
 
@@ -30,6 +30,7 @@ const itemVariants = {
 
 export default function CompanyProfilePage() {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -37,13 +38,30 @@ export default function CompanyProfilePage() {
   const [formData, setFormData] = useState<Partial<Company>>({});
 
   useEffect(() => {
-    const storedEmpresaId = localStorage.getItem('empresaId');
-    if (storedEmpresaId) {
-      setEmpresaId(storedEmpresaId);
-    } else {
-      setIsLoading(false);
+    const getEmpresaId = async () => {
+      const storedEmpresaId = localStorage.getItem('empresaId');
+      if (storedEmpresaId) {
+        setEmpresaId(storedEmpresaId);
+        return;
+      }
+      if (user?.sub) {
+        try {
+          const data = await fetchWithAuth(`${API_URL}/api/company-representatives/user/${user.sub}`);
+          if (data?.empresaId) {
+            const newEmpresaId = data.empresaId.toString();
+            setEmpresaId(newEmpresaId);
+            localStorage.setItem('empresaId', newEmpresaId);
+          }
+        } catch (err) {
+          console.error('Error al obtener empresaId:', err);
+        }
+      }
+      if (!empresaId) setIsLoading(false);
+    };
+    if (isAuthenticated) {
+      getEmpresaId();
     }
-  }, []);
+  }, [user, isAuthenticated]);
 
   const loadCompany = async () => {
     if (!empresaId) return;
@@ -257,30 +275,6 @@ export default function CompanyProfilePage() {
             </div>
           </div>
 
-          {/* Representative Info */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2">
-              Representante Legal
-            </h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Nombre del Representante</p>
-                  {isEditing ? (
-                    <Input
-                      value={formData.representanteNombre || ''}
-                      onChange={(e) => setFormData({ ...formData, representanteNombre: e.target.value })}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="text-foreground">{company.representanteNombre || 'No especificado'}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </motion.div>
 

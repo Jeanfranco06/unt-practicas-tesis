@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen,
@@ -25,6 +25,9 @@ import { EmptyState } from '@/components/student/EmptyState';
 import { CardSkeleton } from '@/components/student/LoadingState';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc/react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/use-toast';
+import { API_URL, fetchWithAuth } from '@/app/dashboard/internships/_lib/offers';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -43,77 +46,61 @@ const itemVariants = {
   },
 };
 
-// Mock data
-const tesisData = {
-  actual: {
-    id: 1,
-    titulo: 'Sistema de Gestión de Prácticas Preprofesionales para la UNT',
-    tema: 'Ingeniería de Software',
-    estado: 'draft',
-    asesor: 'Dr. Juan Carlos Ramírez',
-    coAsesor: 'Dra. María Elena Torres',
-    fechaInicio: '2024-01-15',
-    fechaEntrega: '2024-12-15',
-    progreso: 45,
-    revisiones: 3,
-    palabrasClave: ['gestión', 'prácticas', 'software', 'educación'],
-    resumen:
-      'Este trabajo propone el desarrollo de un sistema integral para la gestión de prácticas preprofesionales...',
-  },
-  historial: [
-    {
-      id: 1,
-      version: 'v0.3',
-      fecha: '2024-10-15',
-      estado: 'reviewed',
-      comentarios: 12,
-      cambios: 'Metodología actualizada y casos de estudio añadidos',
-    },
-    {
-      id: 2,
-      version: 'v0.2',
-      fecha: '2024-09-01',
-      estado: 'reviewed',
-      comentarios: 8,
-      cambios: 'Correcciones en el marco teórico',
-    },
-    {
-      id: 3,
-      version: 'v0.1',
-      fecha: '2024-07-20',
-      estado: 'approved',
-      comentarios: 0,
-      cambios: 'Versión inicial aprobada',
-    },
-  ],
-  actividades: [
-    {
-      id: 1,
-      tipo: 'revision',
-      titulo: 'Revisión de capítulo 3 completada',
-      fecha: 'Hace 2 días',
-      autor: 'Dr. Juan Carlos Ramírez',
-    },
-    {
-      id: 2,
-      tipo: 'comentario',
-      titulo: 'Nuevo comentario en sección 2.4',
-      fecha: 'Hace 3 días',
-      autor: 'Dra. María Elena Torres',
-    },
-    {
-      id: 3,
-      tipo: 'documento',
-      titulo: 'Documento v0.3 subido',
-      fecha: 'Hace 5 días',
-      autor: 'Tú',
-    },
-  ],
-};
+interface ThesisProject {
+  id: number;
+  titulo: string;
+  tema: string;
+  estado: string;
+  asesor?: { nombre: string; apellidoPaterno: string };
+  fechaInicio?: string;
+  fechaEntrega?: string;
+  progreso?: number;
+  resumen?: string;
+}
+
+interface ThesisVersion {
+  id: number;
+  version: string;
+  fecha: string;
+  estado: string;
+  comentarios?: number;
+  cambios?: string;
+}
 
 export default function TesisPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [busqueda, setBusqueda] = useState('');
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [thesisProjects, setThesisProjects] = useState<ThesisProject[]>([]);
+  const [thesisVersions, setThesisVersions] = useState<ThesisVersion[]>([]);
+
+  useEffect(() => {
+    if (user?.sub) {
+      loadThesisData();
+    }
+  }, [user]);
+
+  const loadThesisData = async () => {
+    try {
+      setIsLoading(true);
+      const projects = await fetchWithAuth(`${API_URL}/api/thesis/projects/student/${user?.sub}`);
+      setThesisProjects(projects || []);
+      
+      // TODO: Cargar versiones cuando exista endpoint
+      setThesisVersions([]);
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'No se pudieron cargar los datos de tesis',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const currentThesis = thesisProjects[0];
 
   if (isLoading) {
     return (
@@ -125,6 +112,29 @@ export default function TesisPage() {
           ))}
         </div>
       </div>
+    );
+  }
+
+  if (!currentThesis) {
+    return (
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-6"
+      >
+        <motion.div variants={itemVariants}>
+          <EmptyState
+            icon={BookOpen}
+            title="No tienes un proyecto de tesis"
+            description="Aún no has registrado un proyecto de tesis. Contacta a tu coordinador para iniciar el proceso."
+            action={{
+              label: 'Nuevo proyecto',
+              onClick: () => {},
+            }}
+          />
+        </motion.div>
+      </motion.div>
     );
   }
 
@@ -168,29 +178,23 @@ export default function TesisPage() {
                 <div className="flex items-center gap-2 mb-2">
                   <BookOpen className="w-5 h-5 text-primary" />
                   <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    {tesisData.actual.tema}
+                    {currentThesis.tema}
                   </span>
                 </div>
                 <h2 className="text-xl font-bold text-foreground leading-tight">
-                  {tesisData.actual.titulo}
+                  {currentThesis.titulo}
                 </h2>
                 <div className="flex flex-wrap items-center gap-4 mt-4">
                   <div className="flex items-center gap-2">
                     <UserCircle className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">
-                      Asesor: {tesisData.actual.asesor}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <UserCircle className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Co-asesor: {tesisData.actual.coAsesor}
+                      Asesor: {currentThesis.asesor ? `${currentThesis.asesor.nombre} ${currentThesis.asesor.apellidoPaterno}` : 'Sin asignar'}
                     </span>
                   </div>
                 </div>
               </div>
-              <StatusBadge variant={tesisData.actual.estado as any} size="lg" pulse>
-                {tesisData.actual.estado === 'draft' ? 'Borrador' : 'En revisión'}
+              <StatusBadge variant={currentThesis.estado as any} size="lg" pulse>
+                {currentThesis.estado === 'draft' ? 'Borrador' : 'En revisión'}
               </StatusBadge>
             </div>
           </div>
@@ -202,13 +206,13 @@ export default function TesisPage() {
                 Progreso general
               </span>
               <span className="text-sm font-semibold text-foreground">
-                {tesisData.actual.progreso}%
+                {currentThesis.progreso}%
               </span>
             </div>
             <div className="h-3 bg-muted rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${tesisData.actual.progreso}%` }}
+                animate={{ width: `${currentThesis.progreso}%` }}
                 transition={{ duration: 1 }}
                 className="h-full bg-primary rounded-full"
               />
@@ -220,17 +224,17 @@ export default function TesisPage() {
             {[
               {
                 label: 'Fecha inicio',
-                value: new Date(tesisData.actual.fechaInicio).toLocaleDateString('es-ES'),
+                value: currentThesis.fechaInicio ? new Date(currentThesis.fechaInicio).toLocaleDateString('es-ES') : 'Sin definir',
                 icon: Calendar,
               },
               {
                 label: 'Fecha entrega',
-                value: new Date(tesisData.actual.fechaEntrega).toLocaleDateString('es-ES'),
+                value: currentThesis.fechaEntrega ? new Date(currentThesis.fechaEntrega).toLocaleDateString('es-ES') : 'Sin definir',
                 icon: Clock,
               },
               {
                 label: 'Revisiones',
-                value: `${tesisData.actual.revisiones} realizadas`,
+                value: '0 realizadas',
                 icon: History,
               },
               {
@@ -266,7 +270,7 @@ export default function TesisPage() {
           </TabsList>
 
           <TabsContent value="actividad" className="space-y-4">
-            {tesisData.actividades.map((actividad, index) => (
+            {[].map((actividad: any, index: number) => (
               <motion.div
                 key={actividad.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -302,7 +306,7 @@ export default function TesisPage() {
           </TabsContent>
 
           <TabsContent value="historial" className="space-y-4">
-            {tesisData.historial.map((version, index) => (
+            {thesisVersions.map((version, index) => (
               <motion.div
                 key={version.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -355,7 +359,7 @@ export default function TesisPage() {
         <div className="lg:col-span-2 p-6 bg-card rounded-2xl border border-border shadow-soft">
           <h3 className="text-lg font-semibold text-foreground mb-3">Resumen</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {tesisData.actual.resumen}
+            {currentThesis.resumen}
           </p>
         </div>
         <div className="p-6 bg-card rounded-2xl border border-border shadow-soft">
@@ -363,7 +367,7 @@ export default function TesisPage() {
             Palabras clave
           </h3>
           <div className="flex flex-wrap gap-2">
-            {tesisData.actual.palabrasClave.map((palabra) => (
+            {[].map((palabra: string) => (
               <span
                 key={palabra}
                 className="px-3 py-1 bg-muted text-muted-foreground text-sm rounded-full"

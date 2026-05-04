@@ -28,6 +28,9 @@ export function LoginForm() {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       document.cookie = `accessToken=${data.accessToken}; path=/`;
+      if (data.empresaId) {
+        localStorage.setItem('empresaId', data.empresaId.toString());
+      }
       router.push('/');
     },
   });

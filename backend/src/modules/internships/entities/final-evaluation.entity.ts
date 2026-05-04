@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { Internship } from './internship.entity';
 
 @Entity('evaluacion_final_practica')
@@ -10,6 +10,7 @@ export class FinalEvaluation {
   practicaId: number;
 
   @ManyToOne(() => Internship)
+  @JoinColumn({ name: 'practica_id' })
   practica: Internship;
 
   @Column({ name: 'calificacion_empresa', type: 'int' })

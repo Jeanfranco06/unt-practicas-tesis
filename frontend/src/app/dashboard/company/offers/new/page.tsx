@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { API_URL, fetchWithAuth } from '../../_lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
 const containerVariants = {
@@ -38,11 +39,23 @@ interface Agreement {
 export default function NewOfferPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [isLoadingEmpresaId, setIsLoadingEmpresaId] = useState(true);
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    titulo: string;
+    descripcion: string;
+    requisitos: string;
+    cupos: number | '';
+    fechaInicioPostulacion: string;
+    fechaFinPostulacion: string;
+    fechaInicioPractica: string;
+    fechaFinPractica: string;
+    convenioId: string;
+  }>({
     titulo: '',
     descripcion: '',
     requisitos: '',
@@ -56,12 +69,37 @@ export default function NewOfferPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Obtener empresaId - primero de localStorage, si no existe, del API
   useEffect(() => {
-    const storedEmpresaId = localStorage.getItem('empresaId');
-    if (storedEmpresaId) {
-      setEmpresaId(storedEmpresaId);
+    const getEmpresaId = async () => {
+      // Primero intentar de localStorage
+      const storedEmpresaId = localStorage.getItem('empresaId');
+      if (storedEmpresaId) {
+        setEmpresaId(storedEmpresaId);
+        setIsLoadingEmpresaId(false);
+        return;
+      }
+
+      // Si no está en localStorage, obtener del API usando el user ID
+      if (user?.sub) {
+        try {
+          const data = await fetchWithAuth(`${API_URL}/api/company-representatives/user/${user.sub}`);
+          if (data?.empresaId) {
+            const newEmpresaId = data.empresaId.toString();
+            setEmpresaId(newEmpresaId);
+            localStorage.setItem('empresaId', newEmpresaId);
+          }
+        } catch (err) {
+          console.error('Error al obtener empresaId:', err);
+        }
+      }
+      setIsLoadingEmpresaId(false);
+    };
+
+    if (isAuthenticated) {
+      getEmpresaId();
     }
-  }, []);
+  }, [user, isAuthenticated]);
 
   useEffect(() => {
     const loadAgreements = async () => {
@@ -91,7 +129,7 @@ export default function NewOfferPage() {
     if (!formData.requisitos.trim()) {
       newErrors.requisitos = 'Los requisitos son requeridos';
     }
-    if (formData.cupos < 1) {
+    if (formData.cupos === '' || formData.cupos < 1) {
       newErrors.cupos = 'Debe haber al menos 1 cupo';
     }
     if (!formData.fechaInicioPostulacion) {
@@ -138,7 +176,7 @@ export default function NewOfferPage() {
     if (!empresaId) {
       toast({
         title: 'Error',
-        description: 'No se encontró el ID de la empresa.',
+        description: 'No se encontró el ID de la empresa. Por favor, recarga la página o inicia sesión nuevamente.',
         variant: 'destructive',
       });
       return;
@@ -151,7 +189,7 @@ export default function NewOfferPage() {
         ...formData,
         empresaId: parseInt(empresaId),
         convenioId: formData.convenioId ? parseInt(formData.convenioId) : undefined,
-        cupos: parseInt(formData.cupos.toString()),
+        cupos: formData.cupos === '' ? 1 : parseInt(formData.cupos.toString()),
       };
 
       await fetchWithAuth(`${API_URL}/api/internships/offers`, {
@@ -176,6 +214,36 @@ export default function NewOfferPage() {
       setIsLoading(false);
     }
   };
+
+  // Mostrar carga mientras se obtiene empresaId
+  if (isLoadingEmpresaId) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="text-muted-foreground mt-4">Cargando información de la empresa...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si no se pudo obtener empresaId
+  if (!empresaId) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-foreground mb-2">No se pudo obtener la información de la empresa</h2>
+          <p className="text-muted-foreground mb-4">
+            No se encontró el ID de la empresa asociada a tu cuenta. Por favor, contacta al administrador.
+          </p>
+          <Button onClick={() => window.location.reload()}>
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
@@ -251,7 +319,23 @@ export default function NewOfferPage() {
                   type="number"
                   min={1}
                   value={formData.cupos}
-                  onChange={(e) => setFormData({ ...formData, cupos: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Permitir campo vacío temporalmente o valores >= 1
+                    if (value === '') {
+                      setFormData({ ...formData, cupos: '' as any });
+                    } else {
+                      const numValue = parseInt(value);
+                      setFormData({ ...formData, cupos: isNaN(numValue) ? 1 : numValue });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Al salir del campo, asegurar que tenga al menos valor 1
+                    const value = e.target.value;
+                    if (value === '' || parseInt(value) < 1) {
+                      setFormData({ ...formData, cupos: 1 });
+                    }
+                  }}
                   className={`mt-1 w-32 ${errors.cupos ? 'border-red-500' : ''}`}
                 />
                 {errors.cupos && <p className="text-xs text-red-500 mt-1">{errors.cupos}</p>}
@@ -341,7 +425,7 @@ export default function NewOfferPage() {
                   <option value="">Sin convenio específico</option>
                   {agreements.map((agreement) => (
                     <option key={agreement.id} value={agreement.id}>
-                      {agreement.tipo === 'marco' ? 'Convenio Marco' : 'Convenio Específico'} - {agreement.objetoContrato.substring(0, 50)}...
+                      {agreement.tipo === 'marco' ? 'Convenio Marco' : 'Convenio Específico'} - {agreement.objetoContrato?.substring(0, 50) || 'Sin descripción'}...
                     </option>
                   ))}
                 </select>

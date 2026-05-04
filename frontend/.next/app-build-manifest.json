@@ -6,15 +6,10 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/(auth)/layout": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/layout.js"
-    ],
-    "/(auth)/login/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/login/page.js"
+      "static/chunks/app/page.js"
     ],
     "/dashboard/layout": [
       "static/chunks/webpack.js",
@@ -26,20 +21,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/page.js"
     ],
-    "/dashboard/company/page": [
+    "/(auth)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/company/page.js"
+      "static/chunks/app/(auth)/layout.js"
     ],
-    "/dashboard/notifications/page": [
+    "/(auth)/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/notifications/page.js"
-    ],
-    "/dashboard/coordinator/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/coordinator/page.js"
+      "static/chunks/app/(auth)/login/page.js"
     ],
     "/student/layout": [
       "static/chunks/webpack.js",
@@ -51,15 +41,115 @@
       "static/chunks/main-app.js",
       "static/chunks/app/student/dashboard/page.js"
     ],
+    "/student/practicas/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/student/practicas/page.js"
+    ],
+    "/student/tesis/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/student/tesis/page.js"
+    ],
+    "/student/perfil/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/student/perfil/page.js"
+    ],
+    "/student/notificaciones/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/student/notificaciones/page.js"
+    ],
+    "/student/calendario/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/student/calendario/page.js"
+    ],
+    "/dashboard/company/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/company/page.js"
+    ],
+    "/dashboard/company/offers/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/company/offers/page.js"
+    ],
+    "/dashboard/company/applications/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/company/applications/page.js"
+    ],
+    "/dashboard/company/internships/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/company/internships/page.js"
+    ],
+    "/dashboard/coordinator/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/coordinator/page.js"
+    ],
+    "/dashboard/coordinator/reports/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/coordinator/reports/page.js"
+    ],
+    "/dashboard/coordinator/agreements/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/coordinator/agreements/page.js"
+    ],
     "/dashboard/coordinator/applications/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/coordinator/applications/page.js"
     ],
+    "/dashboard/coordinator/assignments/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/coordinator/assignments/page.js"
+    ],
+    "/dashboard/internships/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/internships/page.js"
+    ],
+    "/dashboard/thesis/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/thesis/page.js"
+    ],
+    "/dashboard/thesis/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/thesis/new/page.js"
+    ],
+    "/dashboard/students/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/students/page.js"
+    ],
+    "/dashboard/teachers/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/teachers/page.js"
+    ],
+    "/dashboard/notifications/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/notifications/page.js"
+    ],
     "/dashboard/advisor/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/advisor/layout.js"
+    ],
+    "/dashboard/advisor/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/advisor/page.js"
     ],
     "/dashboard/advisor/internships/layout": [
       "static/chunks/webpack.js",
@@ -80,6 +170,21 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/advisor/thesis/page.js"
+    ],
+    "/dashboard/advisor/students/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/advisor/students/layout.js"
+    ],
+    "/dashboard/advisor/students/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/advisor/students/page.js"
+    ],
+    "/dashboard/settings/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/settings/page.js"
     ]
   }
 }

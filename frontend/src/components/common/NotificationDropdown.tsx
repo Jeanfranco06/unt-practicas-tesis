@@ -117,7 +117,7 @@ export function NotificationDropdown() {
 
         <ScrollArea className="h-96">
           {notifications && notifications.length > 0 ? (
-            notifications.map((notification) => (
+            notifications.map((notification: Notification) => (
               <div
                 key={notification.id}
                 className={`p-3 border-b last:border-b-0 ${

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { Deliverable } from './deliverable.entity';
 import { Student } from '../../students/entities/student.entity';
 
@@ -9,7 +9,7 @@ export enum EntregaEstado {
   OBSERVADO = 'observado',
 }
 
-@Entity('entrega_tesis')
+@Entity('entrega_tesis_mejorada')
 export class DeliverableSubmission {
   @PrimaryGeneratedColumn()
   id: number;
@@ -18,17 +18,17 @@ export class DeliverableSubmission {
   entregableId: number;
 
   @ManyToOne(() => Deliverable, (del) => del.entregas)
+  @JoinColumn({ name: 'entregable_id' })
   entregable: Deliverable;
 
   @Column({ name: 'estudiante_id' })
   estudianteId: number;
 
   @ManyToOne(() => Student)
+  @JoinColumn({ name: 'estudiante_id' })
   estudiante: Student;
 
-  @Column({ name: 'titulo_entrega', length: 200 })
-  tituloEntrega: string;
-
+  
   @Column({ name: 'documento_url', length: 500 })
   documentoUrl: string;
 
@@ -41,8 +41,14 @@ export class DeliverableSubmission {
   @Column({ type: 'enum', enum: EntregaEstado, default: EntregaEstado.ENTREGADO })
   estado: EntregaEstado;
 
-  @Column({ name: 'retroalimentacion_docente', type: 'text', nullable: true })
-  retroalimentacionDocente: string | null;
+  @Column({ name: 'retroalimentacion_asesor', type: 'text', nullable: true })
+  retroalimentacionAsesor: string;
+
+  @Column({ name: 'fecha_revision', type: 'date', nullable: true })
+  fechaRevision: Date | null;
+
+  @Column({ name: 'revisado_por', type: 'int', nullable: true })
+  revisadoPor: number | null;
 
   @CreateDateColumn({ name: 'creado_en' })
   creadoEn: Date;

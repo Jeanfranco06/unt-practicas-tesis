@@ -1,16 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { ThesisProject } from './thesis-project.entity';
 import { DeliverableSubmission } from './deliverable-submission.entity';
 
-@Entity('entregable_tesis')
+@Entity('entregable_tesis_mejorado')
 export class Deliverable {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'proyecto_id' })
+  @Column({ name: 'tesis_id' })
   proyectoId: number;
 
   @ManyToOne(() => ThesisProject, (proj) => proj.entregables)
+  @JoinColumn({ name: 'tesis_id' })
   proyecto: ThesisProject;
 
   @Column({ length: 200 })

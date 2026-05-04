@@ -37,6 +37,12 @@ export class CreateInternshipOfferDto {
   @Min(1)
   cupos: number;
 
+  @IsInt()
+  @Min(1)
+  @Max(600)
+  @IsOptional()
+  horasTotalesRequeridas?: number;  // Horas configurables por oferta (default: 400)
+
   @IsEnum(OfertaEstado)
   @IsOptional()
   estado?: OfertaEstado;

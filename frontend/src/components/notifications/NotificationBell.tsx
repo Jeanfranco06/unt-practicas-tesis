@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
@@ -76,6 +77,7 @@ const getNotificationLink = (tipo: string, datos?: any): string | null => {
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { role } = useAuth();
   const {
     notifications,
     unreadCount,
@@ -84,6 +86,11 @@ export function NotificationBell() {
     markAllAsRead,
     archiveNotification,
   } = useNotifications();
+
+  // Ruta de notificaciones según el rol
+  const notificationsPage = role === 'RepresentanteEmpresa' 
+    ? '/dashboard/company/notifications' 
+    : '/dashboard/notifications';
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -154,7 +161,7 @@ export function NotificationBell() {
                     Marcar todas
                   </Button>
                 )}
-                <Link href="/dashboard/notifications">
+                <Link href={notificationsPage}>
                   <Button variant="ghost" size="sm" className="text-xs h-8">
                     <ExternalLink className="w-4 h-4" />
                   </Button>

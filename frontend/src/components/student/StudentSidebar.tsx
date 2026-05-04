@@ -27,7 +27,7 @@ const navigation = [
 ];
 
 const secondaryNavigation = [
-  { name: 'Configuración', href: '/student/configuracion', icon: Settings },
+  { name: 'Configuración', href: '/student/perfil', icon: Settings },
 ];
 
 // Mobile menu button export

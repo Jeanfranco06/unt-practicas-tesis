@@ -62,53 +62,8 @@ export default function PostulacionesPage() {
   const loadApplications = async () => {
     try {
       setIsLoading(true);
-      // TODO: Reemplazar con endpoint real cuando exista
-      // Por ahora usando mock data
-      const mockData: Application[] = [
-        {
-          id: 1,
-          ofertaId: 1,
-          oferta: {
-            titulo: 'Desarrollador Frontend React',
-            empresa: { razonSocial: 'Tech Solutions Perú S.A.C.' },
-            fechaInicioPractica: '2024-06-01',
-            fechaFinPractica: '2024-12-01',
-          },
-          estado: 'aprobado',
-          fechaPostulacion: '2024-05-15T10:30:00Z',
-          fechaRevision: '2024-05-18T14:20:00Z',
-          cartaPresentacion: 'Me interesa esta práctica porque...',
-        },
-        {
-          id: 2,
-          ofertaId: 2,
-          oferta: {
-            titulo: 'Pasante de Base de Datos',
-            empresa: { razonSocial: 'DataCorp EIRL' },
-            fechaInicioPractica: '2024-07-01',
-            fechaFinPractica: '2024-12-31',
-          },
-          estado: 'postulado',
-          fechaPostulacion: '2024-05-20T09:15:00Z',
-          fechaRevision: null,
-          cartaPresentacion: 'Tengo experiencia en SQL y PostgreSQL...',
-        },
-        {
-          id: 3,
-          ofertaId: 3,
-          oferta: {
-            titulo: 'Desarrollador Backend Node.js',
-            empresa: { razonSocial: 'Startup Innovación' },
-            fechaInicioPractica: '2024-06-15',
-            fechaFinPractica: '2024-11-15',
-          },
-          estado: 'rechazado',
-          fechaPostulacion: '2024-04-10T16:45:00Z',
-          fechaRevision: '2024-04-12T11:30:00Z',
-          cartaPresentacion: 'Conocimientos en Express y MongoDB...',
-        },
-      ];
-      setApplications(mockData);
+      const data = await fetchWithAuth(`${API_URL}/api/internships/my-applications`);
+      setApplications(data);
     } catch (err: any) {
       toast({
         title: 'Error',

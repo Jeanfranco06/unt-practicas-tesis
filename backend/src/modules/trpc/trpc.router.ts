@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { TrpcService } from './trpc.service';
 import { AuthService } from '../auth/auth.service';
 import { InternshipsService } from '../internships/internships.service';
@@ -7,8 +9,10 @@ import { CompaniesService } from '../companies/companies.service';
 import { StudentsService } from '../students/students.service';
 import { UsersService } from '../users/users.service';
 import { ReportsService } from '../reports/reports.service';
+import { Teacher } from '../academic/entities/teacher.entity';
 import { z } from 'zod';
 import { DashboardRouter } from '../dashboard/dashboard.router';
+import { NotificationsRouter } from '../notifications/notifications.router';
 
 
 @Injectable()
@@ -23,6 +27,9 @@ export class TrpcRouter {
     private usersService: UsersService,
     private reportsService: ReportsService,
     private dashboardRouter: DashboardRouter,
+    private notificationsRouter: NotificationsRouter,
+    @InjectRepository(Teacher)
+    private teacherRepo: Repository<Teacher>,
   ) {}
 
   appRouter = this.trpc.router({
@@ -104,6 +111,9 @@ export class TrpcRouter {
           evidenciaUrl: z.string().url().optional(),
         }))
         .mutation(async ({ input }) => this.internshipsService.addHoursTracking(input)),
+      getMyAdvisedInternships: this.trpc.protectedProcedure.query(async ({ ctx }) => {
+        return this.internshipsService.getInternshipsByAdvisor(ctx.user.sub);
+      }),
     }),
     thesis: this.trpc.router({
       listProjects: this.trpc.protectedProcedure.query(async () => this.thesisService.findAllProjects()),
@@ -112,11 +122,28 @@ export class TrpcRouter {
         .mutation(async ({ input, ctx }) => {
           return this.thesisService.submitDeliverable(input, ctx.user.sub);
         }),
+      getMyAdvisedThesis: this.trpc.protectedProcedure.query(async ({ ctx }) => {
+        // Get teacher profile from user ID to get the correct docenteId
+        const teacher = await this.teacherRepo.findOne({ where: { usuarioId: ctx.user.sub } });
+        if (!teacher) {
+          return [];
+        }
+        return this.thesisService.getProjectsByAdvisor(teacher.id);
+      }),
+      getMyAdvisorProjects: this.trpc.protectedProcedure.query(async ({ ctx }) => {
+        // Alias for getMyAdvisedThesis - same implementation
+        const teacher = await this.teacherRepo.findOne({ where: { usuarioId: ctx.user.sub } });
+        if (!teacher) {
+          return [];
+        }
+        return this.thesisService.getProjectsByAdvisor(teacher.id);
+      }),
     }),
     reports: this.trpc.router({
       getInternshipData: this.trpc.protectedProcedure.query(async () => this.reportsService.collectInternshipData({})),
       getThesisData: this.trpc.protectedProcedure.query(async () => this.reportsService.collectThesisData({})),
     }),
+    notifications: this.notificationsRouter.router,
     dashboard: this.dashboardRouter.router,
   });
 

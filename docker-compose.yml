@@ -1,15 +1,60 @@
-﻿version: "3.8"
-services:
+﻿services:
   postgres:
     image: postgres:15
     environment:
       POSTGRES_DB: unt_practicas_tesis
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      LANG: es_ES.UTF-8
+      LC_ALL: es_ES.UTF-8
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=es_ES.UTF-8"
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./init-scripts/01-init-normalized.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./init-scripts/03-test-data.sql:/docker-entrypoint-initdb.d/03-test-data.sql
+      - ./fix-utf8-complete.sql:/docker-entrypoint-initdb.d/99-fix-utf8.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d unt_practicas_tesis"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: unt_practicas_tesis
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-in-production
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 7d
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run start:prod
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    command: npm run start
+
 volumes:
   postgres_data:

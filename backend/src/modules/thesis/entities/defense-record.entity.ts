@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { ThesisProject } from './thesis-project.entity';
 
 export enum ResultadoSustentacion {
@@ -15,6 +15,7 @@ export class DefenseRecord {
   proyectoId: number;
 
   @ManyToOne(() => ThesisProject, (proj) => proj.acta)
+  @JoinColumn({ name: 'proyecto_id' })
   proyecto: ThesisProject;
 
   @Column({ name: 'fecha_sustentacion', type: 'date' })

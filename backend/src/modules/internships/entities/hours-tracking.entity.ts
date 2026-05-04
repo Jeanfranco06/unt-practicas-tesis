@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { Internship } from './internship.entity';
 
 @Entity('seguimiento_horas')
@@ -10,6 +10,7 @@ export class HoursTracking {
   practicaId: number;
 
   @ManyToOne(() => Internship)
+  @JoinColumn({ name: 'practica_id' })
   practica: Internship;
 
   @Column({ name: 'fecha_trabajada', type: 'date' })

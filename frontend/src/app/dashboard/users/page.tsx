@@ -4,26 +4,27 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Shield, MoreHorizontal, AlertCircle, Filter, X } from 'lucide-react';
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Shield, MoreHorizontal, AlertCircle, Filter, X, Info, GraduationCap, Building2, UserCog, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { CardSkeleton } from '@/components/student/LoadingState';
-import { 
-  getUsers, 
-  deleteUser, 
-  toggleUserStatus, 
-  filterUsers, 
-  getFullName, 
-  getInitials, 
-  getAvatarColor, 
-  rolColors, 
-  rolLabels, 
+import {
+  getUsers,
+  deleteUser,
+  toggleUserStatus,
+  filterUsers,
+  getFullName,
+  getInitials,
+  getAvatarColor,
+  rolColors,
+  rolLabels,
   getStatusBadgeColor,
   rolSelectOptions,
   statusOptions,
   API_URL,
   fetchWithAuth,
+  RolUsuario,
   type User
 } from './_lib/users';
 
@@ -61,6 +62,8 @@ export default function UsersPage() {
     title: '',
     description: '',
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const USERS_PER_PAGE = 8;
 
   const loadUsers = async () => {
     try {
@@ -145,6 +148,18 @@ export default function UsersPage() {
 
   const filteredUsers = filterUsers(users, searchTerm, roleFilter, statusFilter);
 
+  // Paginación
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE
+  );
+
+  // Reset página cuando cambian filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -180,6 +195,50 @@ export default function UsersPage() {
             <Plus className="h-4 w-4 mr-2" /> Nuevo Usuario
           </Link>
         </Button>
+      </motion.div>
+
+      {/* Info Cards - Flujo de creación */}
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <div className="space-y-3 flex-1">
+            <h3 className="font-semibold text-foreground">Flujo de creación de usuarios</h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+              {/* Estudiante */}
+              <div className="flex items-start gap-2 p-3 bg-white/60 dark:bg-white/5 rounded-lg">
+                <GraduationCap className="w-4 h-4 text-amber-600 mt-0.5" />
+                <div>
+                  <span className="font-medium text-foreground block">Estudiante</span>
+                  <span className="text-muted-foreground text-xs">Perfil automático. El sistema genera código universitario y escuela profesional al crear el usuario.</span>
+                </div>
+              </div>
+              {/* Coordinador/Asesor */}
+              <div className="flex items-start gap-2 p-3 bg-white/60 dark:bg-white/5 rounded-lg">
+                <UserCog className="w-4 h-4 text-blue-600 mt-0.5" />
+                <div>
+                  <span className="font-medium text-foreground block">Coordinador / Asesor</span>
+                  <span className="text-muted-foreground text-xs">Solo requieren el rol asignado. No necesitan perfil adicional.</span>
+                </div>
+              </div>
+              {/* Representante */}
+              <div className="flex items-start gap-2 p-3 bg-white/60 dark:bg-white/5 rounded-lg">
+                <Building2 className="w-4 h-4 text-cyan-600 mt-0.5" />
+                <div>
+                  <span className="font-medium text-foreground block">Representante</span>
+                  <span className="text-muted-foreground text-xs">Requiere crear la empresa primero en el módulo de Empresas, luego asignar el representante.</span>
+                </div>
+              </div>
+              {/* Admin */}
+              <div className="flex items-start gap-2 p-3 bg-white/60 dark:bg-white/5 rounded-lg">
+                <Shield className="w-4 h-4 text-purple-600 mt-0.5" />
+                <div>
+                  <span className="font-medium text-foreground block">Administrador</span>
+                  <span className="text-muted-foreground text-xs">Acceso total al sistema. Crear directamente sin pasos adicionales.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* Filters */}
@@ -259,7 +318,7 @@ export default function UsersPage() {
       {/* Users List */}
       <motion.div variants={itemVariants} className="grid gap-4">
         <AnimatePresence>
-          {filteredUsers.map((user) => (
+          {paginatedUsers.map((user) => (
             <motion.div
               key={user.id}
               initial={{ opacity: 0, y: 20 }}
@@ -277,14 +336,34 @@ export default function UsersPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-foreground">{getFullName(user)}</h3>
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${rolColors[user.rol]}`}>
-                        {rolLabels[user.rol]}
-                      </span>
+                      {user.roles && user.roles.length > 0 ? (
+                        user.roles.map((role, idx) => (
+                          <span
+                            key={idx}
+                            className={`px-2 py-0.5 text-xs rounded-full ${rolColors[role.nombre as RolUsuario] || rolColors[RolUsuario.SIN_ROL]}`}
+                          >
+                            {rolLabels[role.nombre as RolUsuario] || role.nombre}
+                          </span>
+                        ))
+                      ) : user.rol === RolUsuario.SIN_ROL ? (
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${rolColors[RolUsuario.SIN_ROL]}`}>
+                          {rolLabels[RolUsuario.SIN_ROL]}
+                        </span>
+                      ) : (
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${rolColors[user.rol]}`}>
+                          {rolLabels[user.rol]}
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusBadgeColor(user.activo)}`}>
                         {user.activo ? 'Activo' : 'Inactivo'}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
+                    {user.rol === RolUsuario.SIN_ROL && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                        Sin rol asignado - No puede acceder al sistema
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Registrado: {new Date(user.creadoEn || '').toLocaleDateString('es-PE')}
                     </p>
@@ -333,7 +412,7 @@ export default function UsersPage() {
           ))}
         </AnimatePresence>
 
-        {filteredUsers.length === 0 && (
+        {paginatedUsers.length === 0 && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -347,6 +426,33 @@ export default function UsersPage() {
                 : 'Comienza creando un nuevo usuario'}
             </p>
           </motion.div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="border-border"
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="border-border"
+            >
+              Siguiente
+            </Button>
+          </div>
         )}
       </motion.div>
 

@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Briefcase,
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc/react';
 import { useAuth } from '@/hooks/useAuth';
+import { API_URL, fetchWithAuth } from '@/app/dashboard/internships/_lib/offers';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -59,27 +61,53 @@ interface Deadline {
   priority: 'high' | 'medium' | 'low';
 }
 
-const recentActivities: Activity[] = [
-  { id: 1, title: 'Informe mensual enviado', date: 'Hace 2 días', type: 'success' },
-  { id: 2, title: 'Revisión de tesis programada', date: 'Hace 3 días', type: 'info' },
-  { id: 3, title: 'Documento rechazado', date: 'Hace 5 días', type: 'warning' },
-];
-
-const upcomingDeadlines: Deadline[] = [
-  { id: 1, title: 'Entrega de informe final', date: '15 Nov 2024', daysLeft: 12, priority: 'high' },
-  { id: 2, title: 'Revisión con asesor', date: '20 Nov 2024', daysLeft: 17, priority: 'medium' },
-  { id: 3, title: 'Actualización de datos', date: '30 Nov 2024', daysLeft: 27, priority: 'low' },
-];
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
 
   // @ts-ignore - TRPC types need regeneration after backend changes
   const { data: myInternship, isLoading: loadingInternship } = (trpc as any).internships?.getMyInternship?.useQuery() || { data: null, isLoading: false };
   // @ts-ignore - TRPC types need regeneration after backend changes
   const { data: thesisProjects, isLoading: loadingThesis } = (trpc as any).thesis?.listProjects?.useQuery() || { data: null, isLoading: false };
 
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const data = await fetchWithAuth(`${API_URL}/api/notifications?limit=5`);
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Error cargando notificaciones:', err);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
   const userName = user?.email?.split('@')[0] || 'Estudiante';
+
+  // Convertir notificaciones a actividades
+  const recentActivities: Activity[] = notifications.slice(0, 3).map((n: any, i: number) => ({
+    id: n.id || i,
+    title: n.titulo || 'Notificación',
+    date: n.creadoEn ? new Date(n.creadoEn).toLocaleDateString('es-ES') : 'Reciente',
+    type: n.tipo === 'exito' ? 'success' : n.tipo === 'error' ? 'warning' : 'info',
+  }));
+
+  // Vencimientos basados en práctica actual
+  const upcomingDeadlines: Deadline[] = myInternship?.fechaFinPractica ? [
+    {
+      id: 1,
+      title: 'Fin de práctica',
+      date: new Date(myInternship.fechaFinPractica).toLocaleDateString('es-ES'),
+      daysLeft: Math.max(0, Math.ceil((new Date(myInternship.fechaFinPractica).getTime() - Date.now()) / (1000 * 60 * 60 * 24))),
+      priority: 'high',
+    },
+  ] : [];
 
   // Calculate stats based on real data
   const horasAcumuladas = myInternship?.seguimiento?.reduce((acc: number, s: any) => acc + (s.horas || 0), 0) || 0;

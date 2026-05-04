@@ -1,13 +1,21 @@
-﻿'use client';
+'use client';
 
 import { motion } from 'framer-motion';
-import { Settings, Shield, Save, User, Globe, Eye, FileText, Clock, Lock, Moon, Sun } from 'lucide-react';
+import { Settings, Shield, Save, User, Globe, FileText, Clock, Lock, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
+import { trpc } from '@/lib/trpc/react';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -21,33 +29,67 @@ const itemVariants = {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
 
   // Prevent hydration mismatch
   useEffect(() => setMounted(true), []);
 
-  // Form states
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  // @ts-ignore - TRPC types
+  const { data: profile, isLoading: loadingProfile } = (trpc as any).auth?.me?.useQuery() || { data: null, isLoading: false };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    setSaveMessage('');
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setSaveMessage('Cambios guardados exitosamente');
-    setIsSaving(false);
-    
-    // Clear password fields after save
-    setCurrentPassword('');
-    setNewPassword('');
-    
-    // Clear message after 3 seconds
-    setTimeout(() => setSaveMessage(''), 3000);
+  // Modal de contraseña
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // @ts-ignore - TRPC types
+  const { mutate: changePassword, isPending: isChangingPassword } = (trpc as any).auth?.changePassword?.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Éxito',
+        description: 'Contraseña actualizada correctamente',
+      });
+      setShowPasswordModal(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo cambiar la contraseña',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleChangePassword = () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'Las contraseñas nuevas no coinciden',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: 'Error',
+        description: 'La contraseña debe tener al menos 6 caracteres',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    changePassword({
+      currentPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword,
+    });
   };
 
   if (!mounted) {
@@ -142,7 +184,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label className="text-foreground">Nombre</Label>
               <Input
-                placeholder="Tu nombre"
+                value={profile?.nombre || ''}
                 className="bg-muted/50 border-input"
                 disabled
               />
@@ -151,7 +193,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label className="text-foreground">Apellidos</Label>
               <Input
-                placeholder="Tus apellidos"
+                value={`${profile?.apellidoPaterno || ''} ${profile?.apellidoMaterno || ''}`}
                 className="bg-muted/50 border-input"
                 disabled
               />
@@ -160,7 +202,7 @@ export default function SettingsPage() {
               <Label className="text-foreground">Correo electrónico</Label>
               <Input
                 type="email"
-                placeholder="correo@ejemplo.com"
+                value={profile?.email || ''}
                 className="bg-muted/50 border-input"
                 disabled
               />
@@ -191,63 +233,96 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
-                <Lock className="w-4 h-4" /> Cambiar contraseña
-              </h3>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm">Contraseña actual</Label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="bg-background border-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm">Nueva contraseña</Label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="bg-background border-input"
-                  />
-                </div>
+            <div className="p-4 bg-muted/50 rounded-lg flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Lock className="w-4 h-4" /> Cambiar contraseña
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Actualiza tu contraseña de acceso
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                La contraseña debe tener al menos 8 caracteres
-              </p>
+              <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
+                Cambiar
+              </Button>
             </div>
           </div>
         </motion.div>
-
-        {/* Save Button with feedback */}
-        <motion.div variants={itemVariants} className="flex items-center justify-between">
-          {saveMessage && (
-            <p className="text-sm text-green-600 font-medium">{saveMessage}</p>
-          )}
-          <div className="flex-1" />
-          <Button 
-            onClick={handleSave}
-            disabled={isSaving || (!currentPassword && !newPassword)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" /> Guardar cambios
-              </>
-            )}
-          </Button>
-        </motion.div>
       </div>
+
+      {/* Password Change Modal */}
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Cambiar Contraseña
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Contraseña Actual</label>
+              <div className="relative">
+                <Input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  placeholder="Ingresa tu contraseña actual"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nueva Contraseña</label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Confirmar Nueva Contraseña</label>
+              <Input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                placeholder="Repite la nueva contraseña"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            >
+              {isChangingPassword ? 'Cambiando...' : 'Cambiar Contraseña'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

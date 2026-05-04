@@ -15,6 +15,8 @@ import {
   updateUser, 
   getFullName, 
   rolSelectOptions, 
+  rolColors,
+  rolLabels,
   RolUsuario,
   type User,
   type UpdateUserData
@@ -126,7 +128,6 @@ export default function EditUserPage() {
         nombre: formData.nombre.trim(),
         apellidoPaterno: formData.apellidoPaterno.trim(),
         apellidoMaterno: formData.apellidoMaterno.trim(),
-        rol: formData.rol,
         activo: formData.activo,
       };
       
@@ -248,21 +249,28 @@ export default function EditUserPage() {
           </div>
         </div>
 
-        {/* Rol */}
+        {/* Roles */}
         <div className="space-y-2">
-          <Label htmlFor="rol" className="text-foreground flex items-center gap-2">
-            <Shield className="w-4 h-4" /> Rol
+          <Label className="text-foreground flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Roles
           </Label>
-          <select
-            id="rol"
-            value={formData.rol}
-            onChange={(e) => setFormData({ ...formData, rol: e.target.value as RolUsuario })}
-            className="w-full h-10 rounded-md border border-input bg-background px-3 text-foreground"
-          >
-            {rolSelectOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            {user && user.roles && user.roles.length > 0 ? (
+              user.roles.map((role, idx) => (
+                <span 
+                  key={idx} 
+                  className={`px-3 py-1.5 text-sm rounded-full ${rolColors[role.nombre as RolUsuario]}`}
+                >
+                  {rolLabels[role.nombre as RolUsuario]}
+                </span>
+              ))
+            ) : (
+              <span className={`px-3 py-1.5 text-sm rounded-full ${rolColors[formData.rol]}`}>
+                {rolLabels[formData.rol]}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">Los roles no pueden modificarse al editar un usuario.</p>
         </div>
 
         {/* Contraseña */}

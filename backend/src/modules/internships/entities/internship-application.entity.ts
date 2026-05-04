@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { InternshipOffer } from './internship-offer.entity';
 import { Student } from '../../students/entities/student.entity';
 import { User } from '../../users/entities/user.entity';
@@ -19,18 +19,20 @@ export class InternshipApplication {
   ofertaId: number;
 
   @ManyToOne(() => InternshipOffer)
+  @JoinColumn({ name: 'oferta_id' })
   oferta: InternshipOffer;
 
   @Column({ name: 'estudiante_id' })
   estudianteId: number;
 
   @ManyToOne(() => Student)
+  @JoinColumn({ name: 'estudiante_id' })
   estudiante: Student;
 
-  @Column({ name: 'documento_cv_url', nullable: true, length: 500 })
+  @Column({ name: 'cv_url', nullable: true, length: 500 })
   documentoCvUrl: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'carta_presentacion', type: 'text', nullable: true })
   cartaPresentacion: string;
 
   @Column({ type: 'enum', enum: ApplicationEstado, default: ApplicationEstado.POSTULADO })
@@ -46,5 +48,6 @@ export class InternshipApplication {
   revisadoPor: number;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'revisado_por' })
   revisor: User;
 }

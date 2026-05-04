@@ -29,12 +29,14 @@ export class Internship {
   postulacionId: number;
 
   @ManyToOne(() => InternshipApplication)
+  @JoinColumn({ name: 'postulacion_id' })
   postulacion: InternshipApplication;
 
   @Column({ name: 'estudiante_id', type: 'int' })
   estudianteId: number;
 
   @ManyToOne(() => Student)
+  @JoinColumn({ name: 'estudiante_id' })
   estudiante: Student;
 
   @Column({ name: 'empresa_id', type: 'int' })
@@ -48,6 +50,7 @@ export class Internship {
   asesorAcademicoId: number | null;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'asesor_academico_id' })
   asesorAcademico: User;
 
   @Column({ name: 'asesor_empresa_nombre', length: 200 })

@@ -37,7 +37,7 @@ export function NotificationDropdown() {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/notifications`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/notifications`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -75,7 +75,7 @@ export function NotificationDropdown() {
       if (!token) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/notifications/${id}/read`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/notifications/${id}/read`,
         {
           method: 'PATCH',
           headers: {

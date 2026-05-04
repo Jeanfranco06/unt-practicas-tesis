@@ -25,7 +25,6 @@ export function CompanyForm({ initialData, submitLabel, title, onCancel, onSubmi
     direccion: '',
     telefono: '',
     emailContacto: '',
-    representanteNombre: '',
     activo: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,7 +38,7 @@ export function CompanyForm({ initialData, submitLabel, title, onCancel, onSubmi
         direccion: initialData.direccion || '',
         telefono: initialData.telefono || '',
         emailContacto: initialData.emailContacto || '',
-        representanteNombre: initialData.representanteNombre || '',
+        // representanteNombre eliminado - no existe en la entidad Company
         activo: initialData.activo ?? true,
       });
     }
@@ -152,16 +151,6 @@ export function CompanyForm({ initialData, submitLabel, title, onCancel, onSubmi
               className="bg-background border-border text-foreground"
             />
           </div>
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="representanteNombre">Nombre del Representante Legal</Label>
-          <Input
-            id="representanteNombre"
-            value={formData.representanteNombre}
-            onChange={(e) => setFormData({ ...formData, representanteNombre: e.target.value })}
-            className="bg-background border-border text-foreground"
-          />
         </div>
 
         <div className="flex gap-3 justify-end pt-4">

@@ -13,8 +13,8 @@ coverage/
 .next-dev/
 
 # Environment variables
-.env
-.env.*.local
+#.env
+#.env.*.local
 
 # OS files
 .DS_Store
@@ -25,3 +25,4 @@ Thumbs.db
 
 # Misc
 *.log
+.aider*

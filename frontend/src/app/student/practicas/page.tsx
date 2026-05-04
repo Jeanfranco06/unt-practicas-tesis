@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Briefcase,
@@ -25,6 +25,8 @@ import { EmptyState } from '@/components/student/EmptyState';
 import { CardSkeleton } from '@/components/student/LoadingState';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc/react';
+import { useToast } from '@/components/ui/use-toast';
+import { API_URL, fetchWithAuth } from '@/app/dashboard/internships/_lib/offers';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -78,9 +80,29 @@ const practicas = [
 const filtros = ['Todas', 'Activas', 'Completadas', 'Pendientes'];
 
 export default function PracticasPage() {
+  const { toast } = useToast();
   const [filtroActivo, setFiltroActivo] = useState('Todas');
   const [busqueda, setBusqueda] = useState('');
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [practicaActual, setPracticaActual] = useState<any>(null);
+
+  useEffect(() => {
+    loadPractica();
+  }, []);
+
+  const loadPractica = async () => {
+    try {
+      setIsLoading(true);
+      const data = await fetchWithAuth(`${API_URL}/api/internships/my-internship`);
+      if (data && !data.message) {
+        setPracticaActual(data);
+      }
+    } catch (err: any) {
+      console.error('Error cargando práctica:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const practicasFiltradas = practicas.filter((p) => {
     const matchesBusqueda = p.empresa.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -133,9 +155,17 @@ export default function PracticasPage() {
         className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         {[
-          { label: 'Práctica actual', value: 'Tech Solutions', status: 'active' as const },
-          { label: 'Horas acumuladas', value: '560h', status: 'completed' as const },
-          { label: 'Prácticas completadas', value: '1', status: 'completed' as const },
+          {
+            label: 'Práctica actual',
+            value: practicaActual?.oferta?.titulo ? practicaActual.oferta.titulo.substring(0, 20) + '...' : 'Sin práctica',
+            status: practicaActual ? 'active' : 'pending' as const
+          },
+          {
+            label: 'Horas acumuladas',
+            value: `${practicaActual?.seguimiento?.reduce((acc: number, s: any) => acc + (s.horas || 0), 0) || 0}h`,
+            status: 'completed' as const
+          },
+          { label: 'Prácticas completadas', value: '0', status: 'completed' as const },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -144,8 +174,8 @@ export default function PracticasPage() {
             <p className="text-sm text-muted-foreground">{stat.label}</p>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-lg font-semibold text-foreground">{stat.value}</p>
-              <StatusBadge variant={stat.status} size="sm">
-                {stat.status === 'active' ? 'En curso' : 'Completado'}
+              <StatusBadge variant={stat.status as any} size="sm">
+                {stat.status === 'active' ? 'En curso' : 'Pendiente'}
               </StatusBadge>
             </div>
           </div>

@@ -6,7 +6,7 @@ export enum TipoInformePractica {
 export enum EstadoConvenio {
   VIGENTE = 'vigente',
   VENCIDO = 'vencido',
-  RENOVADO = 'renovado',
+  CANCELADO = 'cancelado',
 }
 
 export enum EstadoOferta {

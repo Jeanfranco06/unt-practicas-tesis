@@ -1,17 +1,41 @@
 'use client';
 
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { CoordinatorSidebar } from '@/components/layout/CoordinatorSidebar';
+import { CompanySidebar } from '@/components/layout/CompanySidebar';
 import { AdminHeader } from '@/components/layout/AdminHeader';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { SidebarProvider, useSidebar } from '@/components/layout/SidebarContext';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
+  const { role, isLoading } = useAuth();
+
+  // Elegir sidebar según el rol
+  const renderSidebar = () => {
+    if (role === 'Coordinador') {
+      return <CoordinatorSidebar />;
+    }
+    if (role === 'RepresentanteEmpresa') {
+      return <CompanySidebar />;
+    }
+    return <AdminSidebar />;
+  };
+
+  // Mostrar estado de carga mientras se determina el rol
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminSidebar />
+      {renderSidebar()}
       <div
         className={cn(
           'min-h-screen flex flex-col transition-all duration-300 ease-in-out',

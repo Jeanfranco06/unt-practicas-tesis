@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { ThesisProject } from './thesis-project.entity';
 import { User } from '../../users/entities/user.entity';
 
@@ -13,27 +13,29 @@ export enum RolJurado {
   VOCAL = 'vocal',
 }
 
-@Entity('asignacion_tesis')
+@Entity('asesor_tesis')
 export class ThesisAssignment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'proyecto_id' })
+  @Column({ name: 'tesis_id', type: 'int' })
   proyectoId: number;
 
   @ManyToOne(() => ThesisProject, (proj) => proj.asignaciones)
+  @JoinColumn({ name: 'tesis_id' })
   proyecto: ThesisProject;
 
-  @Column({ name: 'docente_id' })
+  @Column({ name: 'docente_id', type: 'int' })
   docenteId: number;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'docente_id' })
   docente: User;
 
-  @Column({ type: 'enum', enum: AsignacionTipo })
+  @Column({ name: 'tipo_asignacion', type: 'enum', enum: AsignacionTipo })
   tipo: AsignacionTipo;
 
-  @Column({ name: 'rol_especifico', type: 'enum', enum: RolJurado, nullable: true })
+  @Column({ name: 'rol_jurado', type: 'enum', enum: RolJurado, nullable: true })
   rolEspecifico: RolJurado | null;
 
   @Column({ name: 'fecha_asignacion', type: 'date', default: () => 'CURRENT_DATE' })

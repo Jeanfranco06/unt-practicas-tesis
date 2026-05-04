@@ -1,5 +1,14 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+// Helper para construir URL completa de documentos
+export function getDocumentUrl(documentoUrl?: string): string | undefined {
+  if (!documentoUrl) return undefined;
+  // Si ya es URL completa, retornarla
+  if (documentoUrl.startsWith('http')) return documentoUrl;
+  // Si empieza con /, concatenar con API_URL
+  return `${API_URL}${documentoUrl}`;
+}
+
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
   const response = await fetch(url, {
@@ -41,6 +50,11 @@ export async function getPendingInternships() {
   return fetchWithAuth(`${API_URL}/api/internships/pending-internships`);
 }
 
+// Todas las prácticas con asesor (para carga docente)
+export async function getAllInternships() {
+  return fetchWithAuth(`${API_URL}/api/internships/internships`);
+}
+
 export async function assignAdvisor(internshipId: number, advisorId: number) {
   return fetchWithAuth(`${API_URL}/api/internships/internship/${internshipId}/assign-advisor/${advisorId}`, {
     method: 'PATCH',
@@ -75,6 +89,70 @@ export async function createAgreement(data: any) {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function createAgreementWithDocument(data: any, documentoFile?: File) {
+  const formData = new FormData();
+  
+  // Agregar campos del convenio
+  Object.keys(data).forEach(key => {
+    if (data[key] !== undefined && data[key] !== null) {
+      formData.append(key, String(data[key]));
+    }
+  });
+  
+  // Agregar archivo si existe
+  if (documentoFile) {
+    formData.append('documento', documentoFile);
+  }
+  
+  const token = localStorage.getItem('accessToken');
+  const res = await fetch(`${API_URL}/api/agreements`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: 'Error al crear convenio' }));
+    throw new Error(error.message || `Error ${res.status}: ${res.statusText}`);
+  }
+  
+  return res.json();
+}
+
+export async function updateAgreementWithDocument(id: number, data: any, documentoFile?: File) {
+  const formData = new FormData();
+  
+  // Agregar campos del convenio
+  Object.keys(data).forEach(key => {
+    if (data[key] !== undefined && data[key] !== null) {
+      formData.append(key, String(data[key]));
+    }
+  });
+  
+  // Agregar archivo si existe
+  if (documentoFile) {
+    formData.append('documento', documentoFile);
+  }
+  
+  const token = localStorage.getItem('accessToken');
+  const res = await fetch(`${API_URL}/api/agreements/${id}`, {
+    method: 'PATCH',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: 'Error al actualizar convenio' }));
+    throw new Error(error.message || `Error ${res.status}: ${res.statusText}`);
+  }
+  
+  return res.json();
 }
 
 export async function updateAgreement(id: number, data: any) {

@@ -11,7 +11,7 @@ import { ThesisAssignment, AsignacionTipo } from '../thesis/entities/thesis-assi
 import { Deliverable } from '../thesis/entities/deliverable.entity';
 import { DeliverableSubmission, EntregaEstado } from '../thesis/entities/deliverable-submission.entity';
 import { DefenseRecord } from '../thesis/entities/defense-record.entity';
-import { Agreement, EstadoConvenio } from '../agreements/entities/agreement.entity';
+import { Agreement, EstadoConvenio, calcularEstadoConvenio, normalizarEstadoConvenio } from '../agreements/entities/agreement.entity';
 import { Company } from '../companies/entities/company.entity';
 import { Student } from '../students/entities/student.entity';
 import { User, RolUsuario } from '../users/entities/user.entity';
@@ -78,7 +78,7 @@ export class ReportsService {
 
     const totalHoras = await this.internshipRepo
       .createQueryBuilder('p')
-      .select('SUM(p.horasCompletadas)', 'total')
+      .select('SUM(p.horas_completadas)', 'total')
       .where('p.estado = :estado', { estado: InternshipEstado.ACTIVA })
       .getRawOne();
 
@@ -278,7 +278,6 @@ export class ReportsService {
         : 0,
       itemsPendientes: pendientesRevision.map(e => ({
         id: e.id,
-        tituloEntrega: e.tituloEntrega,
         entregable: e.entregable?.nombre,
         proyecto: e.entregable?.proyecto?.titulo,
         estudiante: `${e.entregable?.proyecto?.estudiante?.usuario?.nombre || ''} ${e.entregable?.proyecto?.estudiante?.usuario?.apellidoPaterno || ''}`,
@@ -333,14 +332,20 @@ export class ReportsService {
    * Convenios vigentes con empresas y fechas de vencimiento
    */
   async getConveniosActivos(filters?: ReportFilters): Promise<any> {
-    const where: any = { estado: EstadoConvenio.VIGENTE };
+    const where: any = {};
+    // No filtrar por estado, lo calcularemos por fecha
     if (filters?.empresaId) where.empresaId = filters.empresaId;
 
-    const convenios = await this.agreementRepo.find({
+    const allConvenios = await this.agreementRepo.find({
       where,
       relations: ['empresa'],
       order: { fechaVencimiento: 'ASC' },
     });
+
+    // Filtrar solo convenios realmente vigentes (no cancelados y fecha no vencida)
+    const convenios = allConvenios.filter(c => 
+      normalizarEstadoConvenio(c.estado, c.fechaVencimiento) === EstadoConvenio.VIGENTE
+    );
 
     const ahora = new Date();
     const treintaDias = new Date(ahora.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -367,7 +372,7 @@ export class ReportsService {
           fechaVencimiento: c.fechaVencimiento,
           diasRestantes,
           alerta: diasRestantes <= 30 ? 'critica' : diasRestantes <= 60 ? 'advertencia' : 'normal',
-          objetoContrato: c.objetoContrato?.substring(0, 100) + '...',
+          objetoContrato: c.objeto ? c.objeto.substring(0, 100) + '...' : '',
         };
       }),
     };
@@ -381,13 +386,16 @@ export class ReportsService {
     const ahora = new Date();
     const treintaDias = new Date(ahora.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    // Convenios por vencer
-    const conveniosPorVencer = await this.agreementRepo.find({
-      where: {
-        estado: EstadoConvenio.VIGENTE,
-        fechaVencimiento: LessThan(treintaDias),
-      },
+    // Convenios por vencer (obtener todos y filtrar por fecha, no solo por estado almacenado)
+    const allConvenios = await this.agreementRepo.find({
       relations: ['empresa'],
+    });
+    
+    // Filtrar convenios realmente vigentes que vencen en 30 días
+    const conveniosPorVencer = allConvenios.filter(c => {
+      const esVigente = normalizarEstadoConvenio(c.estado, c.fechaVencimiento) === EstadoConvenio.VIGENTE;
+      const venceEn30Dias = new Date(c.fechaVencimiento) <= treintaDias && new Date(c.fechaVencimiento) > ahora;
+      return esVigente && venceEn30Dias;
     });
 
     // Estudiantes sin avance (prácticas activas con menos del 25% de horas)
@@ -464,7 +472,10 @@ export class ReportsService {
     const practicasFinalizadas = practicas.filter(p => p.estado === InternshipEstado.FINALIZADA);
     const tesisActivas = tesis.filter(t => t.estado !== ThesisEstado.CULMINADO && t.estado !== ThesisEstado.CANCELADO);
     const tesisFinalizadas = tesis.filter(t => t.estado === ThesisEstado.CULMINADO);
-    const conveniosVigentes = convenios.filter(c => c.estado === EstadoConvenio.VIGENTE);
+    // Calcular convenios vigentes basado en fecha (excluyendo cancelados)
+    const conveniosVigentes = convenios.filter(c => 
+      normalizarEstadoConvenio(c.estado, c.fechaVencimiento) === EstadoConvenio.VIGENTE
+    );
 
     return {
       practicas: {
@@ -646,10 +657,13 @@ export class ReportsService {
    * Carga de estudiantes por docente, tiempo de revisión
    */
   async getDesempenoAsesores(): Promise<any> {
-    const asesores = await this.userRepo.find({ where: { rol: RolUsuario.ASESOR } });
     const assignments = await this.assignmentRepo.find({
       relations: ['docente', 'proyecto', 'proyecto.estudiante', 'proyecto.estudiante.usuario'],
     });
+
+    // Obtener IDs únicos de docentes que son asesores o jurados
+    const docenteIds = [...new Set(assignments.map(a => a.docenteId))];
+    const asesores = await this.userRepo.findByIds(docenteIds);
 
     const asesoresConMetricas = asesores.map(a => {
       const asignaciones = assignments.filter(asg => asg.docenteId === a.id);
@@ -767,32 +781,47 @@ export class ReportsService {
     });
 
     const ahora = new Date();
-    const porVencer = convenios.filter(c => {
+    
+    // Calcular estado real para cada convenio (normaliza estados antiguos como 'renovado')
+    const conveniosConEstadoReal = convenios.map(c => ({
+      ...c,
+      estadoReal: normalizarEstadoConvenio(c.estado, c.fechaVencimiento),
+    }));
+
+    // Convenios por vencer (vigentes que vencen en 60 días o menos)
+    const porVencer = conveniosConEstadoReal.filter(c => {
       const diasRestantes = Math.ceil((new Date(c.fechaVencimiento).getTime() - ahora.getTime()) / (1000 * 60 * 60 * 24));
-      return c.estado === EstadoConvenio.VIGENTE && diasRestantes <= 60;
+      return c.estadoReal === EstadoConvenio.VIGENTE && diasRestantes <= 60 && diasRestantes > 0;
     });
+
+    // Calcular conteos por estado (solo estados válidos del nuevo enum)
+    const conteoPorEstado = {
+      vigente: conveniosConEstadoReal.filter(c => c.estadoReal === EstadoConvenio.VIGENTE).length,
+      vencido: conveniosConEstadoReal.filter(c => c.estadoReal === EstadoConvenio.VENCIDO).length,
+      cancelado: conveniosConEstadoReal.filter(c => c.estadoReal === EstadoConvenio.CANCELADO).length,
+    };
 
     return {
       total: convenios.length,
-      porEstado: {
-        vigente: convenios.filter(c => c.estado === EstadoConvenio.VIGENTE).length,
-        vencido: convenios.filter(c => c.estado === EstadoConvenio.VENCIDO).length,
-        renovado: convenios.filter(c => c.estado === EstadoConvenio.RENOVADO).length,
-      },
+      porEstado: conteoPorEstado,
       porTipo: {
         marco: convenios.filter(c => c.tipo === 'marco').length,
         especifico: convenios.filter(c => c.tipo === 'especifico').length,
       },
       porVencer60Dias: porVencer.length,
-      conveniosPorEmpresa: convenios.map(c => ({
-        id: c.id,
-        empresa: c.empresa?.razonSocial || c.empresa?.nombreComercial,
-        estado: c.estado,
-        tipo: c.tipo,
-        fechaInicio: c.fechaInicio,
-        fechaVencimiento: c.fechaVencimiento,
-        diasRestantes: Math.ceil((new Date(c.fechaVencimiento).getTime() - ahora.getTime()) / (1000 * 60 * 60 * 24)),
-      })),
+      conveniosPorEmpresa: conveniosConEstadoReal.map(c => {
+        const diasRestantes = Math.ceil((new Date(c.fechaVencimiento).getTime() - ahora.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          id: c.id,
+          empresa: c.empresa?.razonSocial || c.empresa?.nombreComercial,
+          estado: c.estadoReal, // Usar estado calculado, no el almacenado
+          estadoAlmacenado: c.estado, // Mostrar también el estado en BD para debug
+          tipo: c.tipo,
+          fechaInicio: c.fechaInicio,
+          fechaVencimiento: c.fechaVencimiento,
+          diasRestantes: diasRestantes > 0 ? diasRestantes : 0,
+        };
+      }),
     };
   }
 
@@ -1548,6 +1577,9 @@ export class ReportsService {
         </html>
       `,
     };
+    handlebars.registerHelper('eq', function(a, b) {
+      return a === b;
+    });
     const compiled = handlebars.compile(templates[templateName]);
     return compiled(data);
   }
@@ -1719,6 +1751,287 @@ export class ReportsService {
       const d = new Date(date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }
+
+  // ==================== REPORTES DE FACULTAD (COORDINADOR) ====================
+
+  /**
+   * Obtiene las prácticas de estudiantes de una facultad específica
+   * Requiere el ID de la facultad del coordinador
+   */
+  async getFacultyInternships(facultadId: number, filters?: ReportFilters): Promise<any> {
+    // Obtener carreras de la facultad
+    const carreras = await this.userRepo.query(
+      `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+      [facultadId]
+    );
+    const carreraIds = carreras.map((c: any) => c.id);
+
+    if (carreraIds.length === 0) {
+      return { total: 0, items: [] };
+    }
+
+    // Obtener prácticas de estudiantes de esas carreras
+    const practicas = await this.internshipRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.estudiante', 'e')
+      .leftJoinAndSelect('e.usuario', 'u')
+      .leftJoinAndSelect('e.carrera', 'c')
+      .leftJoinAndSelect('p.empresa', 'emp')
+      .leftJoinAndSelect('p.asesorAcademico', 'aa')
+      .where('e.carrera_id IN (:...carreraIds)', { carreraIds })
+      .orderBy('p.fecha_inicio', 'DESC')
+      .getMany();
+
+    return {
+      total: practicas.length,
+      facultadId,
+      items: practicas.map(p => ({
+        id: p.id,
+        estudiante: `${p.estudiante?.usuario?.nombre || ''} ${p.estudiante?.usuario?.apellidoPaterno || ''}`,
+        codigoUniversitario: p.estudiante?.codigoUniversitario,
+        carrera: p.estudiante?.carrera?.nombre,
+        empresa: p.empresa?.razonSocial || p.empresa?.nombreComercial,
+        estado: p.estado,
+        horasCompletadas: p.horasCompletadas || 0,
+        horasTotalesRequeridas: p.horasTotalesRequeridas,
+        fechaInicio: p.fechaInicio,
+        fechaFin: p.fechaFin,
+        asesorAcademico: p.asesorAcademico ? `${p.asesorAcademico.nombre} ${p.asesorAcademico.apellidoPaterno}` : 'Sin asignar',
+      })),
+    };
+  }
+
+  /**
+   * Obtiene los proyectos de tesis de estudiantes de una facultad específica
+   */
+  async getFacultyThesis(facultadId: number, filters?: ReportFilters): Promise<any> {
+    const carreras = await this.userRepo.query(
+      `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+      [facultadId]
+    );
+    const carreraIds = carreras.map((c: any) => c.id);
+
+    if (carreraIds.length === 0) {
+      return { total: 0, items: [] };
+    }
+
+    const tesis = await this.thesisRepo
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.estudiante', 'e')
+      .leftJoinAndSelect('e.usuario', 'u')
+      .leftJoinAndSelect('e.carrera', 'c')
+      .leftJoinAndSelect('t.asignaciones', 'a')
+      .leftJoinAndSelect('a.docente', 'd')
+      .leftJoinAndSelect('d.usuario', 'du')
+      .where('e.carrera_id IN (:...carreraIds)', { carreraIds })
+      .orderBy('t.fecha_registro', 'DESC')
+      .getMany();
+
+    return {
+      total: tesis.length,
+      facultadId,
+      items: tesis.map(t => {
+        const asesor = t.asignaciones?.find(a => a.tipo === AsignacionTipo.ASESOR);
+        const jurado = t.asignaciones?.filter(a => a.tipo === AsignacionTipo.JURADO) || [];
+        return {
+          id: t.id,
+          titulo: t.titulo,
+          estudiante: `${t.estudiante?.usuario?.nombre || ''} ${t.estudiante?.usuario?.apellidoPaterno || ''}`,
+          codigoUniversitario: t.estudiante?.codigoUniversitario,
+          carrera: t.estudiante?.carrera?.nombre,
+          estado: t.estado,
+          area: t.areaConocimiento,
+          asesor: asesor ? `${asesor.docente?.nombre} ${asesor.docente?.apellidoPaterno}` : 'Sin asignar',
+          juradoCount: jurado.length,
+          fechaRegistro: t.fechaRegistro,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Obtiene los estudiantes activos de una facultad (con prácticas o tesis)
+   */
+  async getFacultyStudents(facultadId: number, filters?: ReportFilters): Promise<any> {
+    const carreras = await this.userRepo.query(
+      `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+      [facultadId]
+    );
+    const carreraIds = carreras.map((c: any) => c.id);
+
+    if (carreraIds.length === 0) {
+      return { total: 0, items: [] };
+    }
+
+    const estudiantes = await this.studentRepo
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.usuario', 'u')
+      .leftJoinAndSelect('e.carrera', 'c')
+      .where('e.carrera_id IN (:...carreraIds)', { carreraIds })
+      .andWhere('e.activo = :activo', { activo: true })
+      .orderBy('u.apellido_paterno', 'ASC')
+      .getMany();
+
+    return {
+      total: estudiantes.length,
+      facultadId,
+      items: estudiantes.map(e => ({
+        id: e.id,
+        nombre: `${e.usuario?.nombre} ${e.usuario?.apellidoPaterno} ${e.usuario?.apellidoMaterno}`,
+        codigoUniversitario: e.codigoUniversitario,
+        carrera: e.carrera?.nombre,
+        email: e.usuario?.email,
+        promedio: e.promedioGeneral,
+        creditos: e.creditosAprobados,
+      })),
+    };
+  }
+
+  /**
+   * Obtiene los docentes/asesores de una facultad con su carga académica
+   */
+  async getFacultyAdvisors(facultadId: number, filters?: ReportFilters): Promise<any> {
+    // Obtener docentes de la facultad a través de las carreras
+    const docentes = await this.userRepo.query(
+      `SELECT DISTINCT d.id, d.usuario_id, d.especialidad, d.categoria,
+              u.nombre, u.apellido_paterno, u.apellido_materno, u.email,
+              c.nombre as carrera_nombre
+       FROM docente d
+       INNER JOIN usuario u ON u.id = d.usuario_id
+       INNER JOIN carrera c ON c.id = d.carrera_id
+       WHERE c.facultad_id = $1 AND u.activo = true`,
+      [facultadId]
+    );
+
+    const items = await Promise.all(
+      docentes.map(async (d: any) => {
+        // Contar prácticas asignadas
+        const practicasCount = await this.internshipRepo
+          .createQueryBuilder('p')
+          .where('p.asesor_academico_id = :docenteId', { docenteId: d.id })
+          .getCount();
+
+        // Contar tesis donde es asesor
+        const tesisAsesorCount = await this.assignmentRepo
+          .createQueryBuilder('a')
+          .where('a.docente_id = :docenteId', { docenteId: d.id })
+          .andWhere('a.tipo = :tipo', { tipo: AsignacionTipo.ASESOR })
+          .getCount();
+
+        // Contar tesis donde es jurado
+        const tesisJuradoCount = await this.assignmentRepo
+          .createQueryBuilder('a')
+          .where('a.docente_id = :docenteId', { docenteId: d.id })
+          .andWhere('a.tipo = :tipo', { tipo: AsignacionTipo.JURADO })
+          .getCount();
+
+        return {
+          id: d.id,
+          nombre: `${d.nombre} ${d.apellido_paterno} ${d.apellido_materno}`,
+          email: d.email,
+          especialidad: d.especialidad,
+          categoria: d.categoria,
+          carrera: d.carrera_nombre,
+          cargaTotal: practicasCount + tesisAsesorCount + tesisJuradoCount,
+          practicasAsesoria: practicasCount,
+          tesisAsesoria: tesisAsesorCount,
+          tesisJurado: tesisJuradoCount,
+        };
+      })
+    );
+
+    return {
+      total: docentes.length,
+      facultadId,
+      items: items.sort((a, b) => b.cargaTotal - a.cargaTotal),
+    };
+  }
+
+  /**
+   * Obtiene los convenios relacionados con estudiantes de la facultad
+   */
+  async getFacultyAgreements(facultadId: number, filters?: ReportFilters): Promise<any> {
+    // Obtener empresas que tienen convenios y también tienen prácticas con estudiantes de esta facultad
+    const convenios = await this.agreementRepo
+      .createQueryBuilder('conv')
+      .leftJoinAndSelect('conv.empresa', 'e')
+      .innerJoin(
+        'practica',
+        'p',
+        'p.empresa_id = conv.empresa_id'
+      )
+      .innerJoin(
+        'estudiante',
+        'est',
+        'est.id = p.estudiante_id'
+      )
+      .innerJoin(
+        'carrera',
+        'c',
+        'c.id = est.carrera_id AND c.facultad_id = :facultadId',
+        { facultadId }
+      )
+      .distinct(true)
+      .getMany();
+
+    return {
+      total: convenios.length,
+      facultadId,
+      items: convenios.map(c => ({
+        id: c.id,
+        empresa: c.empresa?.razonSocial,
+        ruc: c.empresa?.ruc,
+        tipo: c.tipo,
+        estado: c.estado,
+        fechaInicio: c.fechaInicio,
+        fechaVencimiento: c.fechaVencimiento,
+        diasRestantes: Math.ceil((new Date(c.fechaVencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      })),
+    };
+  }
+
+  /**
+   * Estadísticas generales de la facultad
+   */
+  async getFacultyStats(facultadId: number, filters?: ReportFilters): Promise<any> {
+    const [internships, thesis, students, advisors] = await Promise.all([
+      this.getFacultyInternships(facultadId, filters),
+      this.getFacultyThesis(facultadId, filters),
+      this.getFacultyStudents(facultadId, filters),
+      this.getFacultyAdvisors(facultadId, filters),
+    ]);
+
+    return {
+      facultadId,
+      fecha: new Date().toLocaleDateString('es-PE'),
+      practicas: {
+        total: internships.total,
+        porEstado: this.groupByEstado(internships.items, 'estado'),
+      },
+      tesis: {
+        total: thesis.total,
+        porEstado: this.groupByEstado(thesis.items, 'estado'),
+      },
+      estudiantes: {
+        total: students.total,
+        enPractica: internships.total,
+        enTesis: thesis.total,
+      },
+      docentes: {
+        total: advisors.total,
+        conCarga: advisors.items.filter((d: any) => d.cargaTotal > 0).length,
+      },
+    };
+  }
+
+  private groupByEstado(items: any[], key: string): Record<string, number> {
+    const counts: Record<string, number> = {};
+    items.forEach(item => {
+      const estado = item[key] || 'desconocido';
+      counts[estado] = (counts[estado] || 0) + 1;
     });
     return counts;
   }

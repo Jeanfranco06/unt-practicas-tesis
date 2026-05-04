@@ -25,6 +25,7 @@ export class InternshipOffer {
   convenioId: number;
 
   @ManyToOne(() => Agreement, { nullable: true })
+  @JoinColumn({ name: 'convenio_id' })
   convenio: Agreement;
 
   @Column({ length: 200 })
@@ -50,6 +51,9 @@ export class InternshipOffer {
 
   @Column({ type: 'int' })
   cupos: number;
+
+  @Column({ name: 'horas_totales_requeridas', type: 'int', default: 400 })
+  horasTotalesRequeridas: number;
 
   @Column({ type: 'enum', enum: OfertaEstado, default: OfertaEstado.BORRADOR })
   estado: OfertaEstado;

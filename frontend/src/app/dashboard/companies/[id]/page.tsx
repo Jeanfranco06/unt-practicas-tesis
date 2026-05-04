@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Building2, Edit, Trash2, Phone, Mail, MapPin, User, Calendar, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Building2, Edit, Trash2, Phone, Mail, MapPin, Calendar, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -154,14 +154,6 @@ export default function CompanyDetailPage() {
                   <Mail className="w-4 h-4" /> Email de Contacto
                 </Label>
                 <p className="text-foreground text-sm mt-2">{company.emailContacto}</p>
-              </div>
-            )}
-            {company.representanteNombre && (
-              <div className="p-4 rounded-lg bg-muted/50">
-                <Label className="text-muted-foreground text-sm flex items-center gap-2">
-                  <User className="w-4 h-4" /> Representante Legal
-                </Label>
-                <p className="text-foreground text-sm mt-2">{company.representanteNombre}</p>
               </div>
             )}
           </div>

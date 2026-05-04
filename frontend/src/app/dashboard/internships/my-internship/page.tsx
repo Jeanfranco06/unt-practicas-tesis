@@ -3,9 +3,32 @@
 import { trpc } from '@/lib/trpc/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoursTrackingForm } from '@/components/forms/HoursTrackingForm';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function MyInternshipPage() {
-  const { data: internship } = trpc.internships.getMyInternship.useQuery();
+  const { role, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Only students should access this page
+  const { data: internship, isLoading: internshipLoading } = trpc.internships.getMyInternship.useQuery(undefined, {
+    enabled: role === 'Estudiante',
+  });
+
+  useEffect(() => {
+    if (!authLoading && role && role !== 'Estudiante') {
+      router.push('/dashboard');
+    }
+  }, [role, authLoading, router]);
+
+  if (authLoading || internshipLoading) {
+    return <div className="text-muted-foreground">Cargando...</div>;
+  }
+
+  if (role !== 'Estudiante') {
+    return null;
+  }
 
   if (!internship) return <div className="text-muted-foreground">No tienes una práctica activa</div>;
 

@@ -48,6 +48,12 @@ export class ThesisProject {
   @Column({ name: 'fecha_aprobacion', type: 'date', nullable: true })
   fechaAprobacion: Date | null;
 
+  @Column({ name: 'asesor_sugerido_id', nullable: true })
+  asesorSugeridoId: number | null;  // Estudiante sugiere un asesor
+
+  @Column({ name: 'fecha_sugerencia_asesor', type: 'timestamp', nullable: true })
+  fechaSugerenciaAsesor: Date | null;
+
   @OneToMany(() => ThesisAssignment, (ass) => ass.proyecto)
   asignaciones: ThesisAssignment[];
 

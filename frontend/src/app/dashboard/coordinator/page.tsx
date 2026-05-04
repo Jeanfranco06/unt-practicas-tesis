@@ -240,7 +240,7 @@ export default function CoordinatorDashboard() {
 
       {/* Reports Link */}
       <motion.div variants={itemVariants}>
-        <Link href="/dashboard/reports">
+        <Link href="/dashboard/coordinator/reports">
           <motion.div
             whileHover={{ scale: 1.01 }}
             className="p-4 bg-gradient-to-r from-primary/5 to-emerald-500/5 rounded-xl border border-primary/20 flex items-center justify-between cursor-pointer group"
@@ -250,8 +250,8 @@ export default function CoordinatorDashboard() {
                 <TrendingUp className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-medium text-foreground">Ver Reportes</h3>
-                <p className="text-sm text-muted-foreground">Accede a reportes del estado general de los procesos</p>
+                <h3 className="font-medium text-foreground">Ver Reportes de Facultad</h3>
+                <p className="text-sm text-muted-foreground">Accede a reportes específicos de tu facultad/escuela</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />

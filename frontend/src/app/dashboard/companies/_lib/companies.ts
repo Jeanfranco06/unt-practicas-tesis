@@ -8,7 +8,6 @@ export interface Company {
   direccion: string | null;
   telefono: string | null;
   emailContacto: string | null;
-  representanteNombre: string | null;
   activo: boolean;
   creadoEn: string;
   convenios?: any[];
@@ -22,7 +21,6 @@ export interface CompanyFormData {
   direccion: string;
   telefono: string;
   emailContacto: string;
-  representanteNombre: string;
   activo: boolean;
 }
 

@@ -1,9 +1,11 @@
 import { IsString, IsOptional, IsBoolean, Length, IsEmail } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
+import { IsRucValid } from '../../../common/validators/ruc.validator';
 
 export class CreateCompanyDto {
-  @IsString()
-  @Length(11, 11)
+  @IsString({ message: 'El RUC debe ser texto' })
+  @Length(11, 11, { message: 'El RUC debe tener exactamente 11 dígitos' })
+  @IsRucValid({ message: 'El RUC no es válido según el dígito verificador de SUNAT' })
   ruc: string;
 
   @IsString()
@@ -25,10 +27,6 @@ export class CreateCompanyDto {
   @IsEmail()
   @IsOptional()
   emailContacto?: string;
-
-  @IsString()
-  @IsOptional()
-  representanteNombre?: string;
 
   @IsBoolean()
   @IsOptional()

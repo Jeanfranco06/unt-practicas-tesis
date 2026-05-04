@@ -41,6 +41,9 @@ export function LoginForm() {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       document.cookie = `accessToken=${data.accessToken}; path=/`;
+      if (data.empresaId) {
+        localStorage.setItem('empresaId', data.empresaId.toString());
+      }
       const role = getUserRole(data.accessToken);
       const dashboardRoute = getDashboardRouteByRole(role);
       router.push(dashboardRoute);
@@ -164,7 +167,7 @@ export function LoginForm() {
         </div>
 
         {/* Quick accounts */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <button
             type="button"
             onClick={() => {
@@ -175,19 +178,43 @@ export function LoginForm() {
             }}
             className="px-3 py-2 text-xs font-medium text-slate-400 lg:text-slate-600 bg-slate-800/50 lg:bg-slate-100 hover:bg-slate-800 lg:hover:bg-slate-200 border border-slate-700 lg:border-slate-200 rounded-lg transition-colors"
           >
-            Admin Demo
+            Admin
           </button>
           <button
             type="button"
             onClick={() => {
               const emailInput = document.getElementById('email') as HTMLInputElement;
               const passwordInput = document.getElementById('contrasena') as HTMLInputElement;
-              if (emailInput) emailInput.value = 'estudiante@unt.edu.pe';
+              if (emailInput) emailInput.value = 'coordinador.fi@unt.edu.pe';
               if (passwordInput) passwordInput.value = '123456';
             }}
             className="px-3 py-2 text-xs font-medium text-slate-400 lg:text-slate-600 bg-slate-800/50 lg:bg-slate-100 hover:bg-slate-800 lg:hover:bg-slate-200 border border-slate-700 lg:border-slate-200 rounded-lg transition-colors"
           >
-            Estudiante Demo
+            Coordinador
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const emailInput = document.getElementById('email') as HTMLInputElement;
+              const passwordInput = document.getElementById('contrasena') as HTMLInputElement;
+              if (emailInput) emailInput.value = 'jorge.chavez@unt.edu.pe';
+              if (passwordInput) passwordInput.value = '123456';
+            }}
+            className="px-3 py-2 text-xs font-medium text-slate-400 lg:text-slate-600 bg-slate-800/50 lg:bg-slate-100 hover:bg-slate-800 lg:hover:bg-slate-200 border border-slate-700 lg:border-slate-200 rounded-lg transition-colors"
+          >
+            Asesor
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const emailInput = document.getElementById('email') as HTMLInputElement;
+              const passwordInput = document.getElementById('contrasena') as HTMLInputElement;
+              if (emailInput) emailInput.value = '202310001@estudiante.unt.edu.pe';
+              if (passwordInput) passwordInput.value = '123456';
+            }}
+            className="px-3 py-2 text-xs font-medium text-slate-400 lg:text-slate-600 bg-slate-800/50 lg:bg-slate-100 hover:bg-slate-800 lg:hover:bg-slate-200 border border-slate-700 lg:border-slate-200 rounded-lg transition-colors"
+          >
+            Estudiante
           </button>
         </div>
         <p className="text-[10px] text-slate-500 text-center">

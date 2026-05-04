@@ -1,28 +1,35 @@
-import { IsEmail, IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, IsBoolean, MinLength, MaxLength } from 'class-validator';
 import { RolUsuario } from '../entities/user.entity';
 
 export class CreateUserDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'El email debe ser un correo válido' })
   email: string;
 
-  @IsString()
-  contrasenaHash: string;
+  @IsString({ message: 'La contraseña debe ser texto' })
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  contrasena: string;
 
-  @IsString()
+  @IsString({ message: 'El nombre debe ser texto' })
+  @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
+  @MaxLength(100, { message: 'El nombre no puede exceder 100 caracteres' })
   nombre: string;
 
-  @IsString()
+  @IsString({ message: 'El apellido paterno debe ser texto' })
+  @MinLength(2, { message: 'El apellido paterno debe tener al menos 2 caracteres' })
+  @MaxLength(100, { message: 'El apellido paterno no puede exceder 100 caracteres' })
   apellidoPaterno: string;
 
-  @IsString()
+  @IsString({ message: 'El apellido materno debe ser texto' })
+  @MinLength(2, { message: 'El apellido materno debe tener al menos 2 caracteres' })
+  @MaxLength(100, { message: 'El apellido materno no puede exceder 100 caracteres' })
   apellidoMaterno: string;
 
-  @IsEnum(RolUsuario)
+  @IsEnum(RolUsuario, { message: 'El rol debe ser válido' })
   rol: RolUsuario;
 
   @IsBoolean()
   @IsOptional()
-  activo?: boolean;
+  activo?: boolean = true;
 }
 
 export class UpdateUserDto {
@@ -41,10 +48,6 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   apellidoMaterno?: string;
-
-  @IsEnum(RolUsuario)
-  @IsOptional()
-  rol?: RolUsuario;
 
   @IsBoolean()
   @IsOptional()

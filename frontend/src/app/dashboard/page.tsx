@@ -36,25 +36,21 @@ const statCards = [
     title: 'Prácticas Activas',
     icon: Briefcase,
     color: 'bg-primary',
-    bgColor: 'bg-primary',
   },
   {
     title: 'Tesis en Curso',
     icon: BookOpen,
     color: 'bg-purple-500',
-    bgColor: 'bg-purple-500',
   },
   {
     title: 'Convenios Vigentes',
     icon: FileText,
     color: 'bg-emerald-500',
-    bgColor: 'bg-emerald-500',
   },
   {
     title: 'Estudiantes Registrados',
     icon: Users,
     color: 'bg-amber-500',
-    bgColor: 'bg-amber-500',
   },
 ];
 
@@ -120,9 +116,6 @@ export default function DashboardPage() {
                 <div className={`p-3 ${stat.color} rounded-xl`}>
                   <Icon className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                  +{Math.floor(Math.random() * 20) + 1}%
-                </span>
               </div>
               <div className="mt-4">
                 <h3 className="text-sm font-medium text-muted-foreground">{stat.title}</h3>
@@ -133,7 +126,7 @@ export default function DashboardPage() {
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min((value / 100) * 100, 100)}%` }}
                   transition={{ delay: 0.5 + index * 0.1, duration: 0.8 }}
-                  className={`h-full ${stat.bgColor} rounded-full`}
+                  className={`h-full ${stat.color} rounded-full`}
                 />
               </div>
             </motion.div>

@@ -1,11 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+// import { Role } from './role.entity';
 
 export enum RolUsuario {
-  ADMIN = 'Administrador',
-  COORDINADOR = 'Coordinador',
-  ASESOR = 'Asesor',
-  ESTUDIANTE = 'Estudiante',
-  REPRESENTANTE_EMPRESA = 'RepresentanteEmpresa',
+  ADMIN = 'ADMIN',
+  COORDINADOR = 'COORDINADOR',
+  ASESOR = 'ASESOR',
+  ESTUDIANTE = 'ESTUDIANTE',
+  REPRESENTANTE_EMPRESA = 'REPRESENTANTE_EMPRESA'
 }
 
 @Entity('usuario')
@@ -15,6 +16,9 @@ export class User {
 
   @Column({ unique: true })
   email: string;
+
+  @Column({ name: 'email_recuperacion', nullable: false })
+  emailRecuperacion: string;
 
   @Column({ name: 'contrasena_hash' })
   contrasenaHash: string;
@@ -28,18 +32,32 @@ export class User {
   @Column({ name: 'apellido_materno' })
   apellidoMaterno: string;
 
-  @Column({ type: 'enum', enum: RolUsuario })
-  rol: RolUsuario;
-
   @Column({ default: true })
   activo: boolean;
-
-  @Column({ name: 'refresh_token', type: 'varchar', nullable: true })
-  refreshToken: string | null;
 
   @CreateDateColumn({ name: 'creado_en' })
   creadoEn: Date;
 
-  @UpdateDateColumn({ name: 'actualizado_en' })
-  actualizadoEn: Date;
+  @Column({ name: 'refresh_token', type: 'varchar', nullable: true })
+  refreshToken: string | null;
+
+  @Column({ name: 'refresh_token_expira', type: 'timestamp', nullable: true })
+  refreshTokenExpira: Date | null;
+
+  @Column({ name: 'eliminado', type: 'boolean', default: false })
+  eliminado: boolean;
+
+  @Column({ name: 'eliminado_en', type: 'timestamp', nullable: true })
+  eliminadoEn: Date | null;
+
+  // Campo que no existe en la BD pero se usa en memoria
+  rol: RolUsuario;
+
+  // @ManyToMany(() => Role, (role) => role.users, { eager: true })
+  // @JoinTable({
+  //   name: 'usuario_rol',
+  //   joinColumn: { name: 'usuario_id', referencedColumnName: 'id' },
+  //   inverseJoinColumn: { name: 'rol_id', referencedColumnName: 'id' }
+  // })
+  roles: any[];
 }

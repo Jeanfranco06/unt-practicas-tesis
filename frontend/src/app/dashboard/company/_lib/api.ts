@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem('accessToken');
@@ -29,7 +29,6 @@ export interface Company {
   direccion?: string;
   telefono?: string;
   emailContacto?: string;
-  representanteNombre?: string;
   activo: boolean;
 }
 

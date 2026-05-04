@@ -5,10 +5,14 @@ import { cn } from '@/lib/utils';
 
 interface DropdownMenuProps {
   children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function DropdownMenu({ children }: DropdownMenuProps) {
-  const [open, setOpen] = React.useState(false);
+export function DropdownMenu({ children, open: controlledOpen, onOpenChange }: DropdownMenuProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   
   return (
     <DropdownMenuContext.Provider value={{ open, setOpen }}>
@@ -119,5 +123,28 @@ export function DropdownMenuItem({ children, onClick, className }: DropdownMenuI
     >
       {children}
     </button>
+  );
+}
+
+interface DropdownMenuLabelProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function DropdownMenuLabel({ children, className }: DropdownMenuLabelProps) {
+  return (
+    <div className={cn('px-3 py-2 text-sm font-medium text-slate-300', className)}>
+      {children}
+    </div>
+  );
+}
+
+interface DropdownMenuSeparatorProps {
+  className?: string;
+}
+
+export function DropdownMenuSeparator({ className }: DropdownMenuSeparatorProps) {
+  return (
+    <div className={cn('h-px bg-slate-700 my-1', className)} />
   );
 }

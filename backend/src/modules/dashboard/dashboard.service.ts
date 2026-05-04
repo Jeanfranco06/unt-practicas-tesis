@@ -3,6 +3,7 @@ import { InternshipsService } from '../internships/internships.service';
 import { ThesisService } from '../thesis/thesis.service';
 import { CompaniesService } from '../companies/companies.service';
 import { StudentsService } from '../students/students.service';
+import { AgreementsService } from '../agreements/agreements.service';
 
 @Injectable()
 export class DashboardService {
@@ -11,13 +12,14 @@ export class DashboardService {
     private thesisService: ThesisService,
     private companiesService: CompaniesService,
     private studentsService: StudentsService,
+    private agreementsService: AgreementsService,
   ) {}
 
   async getStats() {
     const internships = await this.internshipsService.findAllInternships();
     const activeInternships = internships.filter(i => i.estado === 'activa').length;
     const thesisStats = await this.thesisService.getStats();
-    const activeAgreements = 0; // TODO: implement
+    const activeAgreements = await this.agreementsService.countActive();
     const totalStudents = (await this.studentsService.findAll()).length;
 
     // Datos para gráficos

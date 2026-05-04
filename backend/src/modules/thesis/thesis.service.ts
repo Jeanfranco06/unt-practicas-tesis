@@ -13,7 +13,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateThesisProjectDto, UpdateThesisProjectDto } from './dto/thesis-project.dto';
 import { CreateThesisAssignmentDto } from './dto/thesis-assignment.dto';
 import { CreateDeliverableDto, SubmitDeliverableDto, ReviewDeliverableDto } from './dto/deliverable.dto';
-import { RolUsuario } from '../users/entities/user.entity';
+import { User, RolUsuario } from '../users/entities/user.entity';
+import { Teacher } from '../academic/entities/teacher.entity';
 
 @Injectable()
 export class ThesisService {
@@ -23,6 +24,8 @@ export class ThesisService {
     @InjectRepository(Deliverable) private deliverableRepo: Repository<Deliverable>,
     @InjectRepository(DeliverableSubmission) private submissionRepo: Repository<DeliverableSubmission>,
     @InjectRepository(DefenseRecord) private defenseRepo: Repository<DefenseRecord>,
+    @InjectRepository(Teacher) private teacherRepo: Repository<Teacher>,
+    @InjectRepository(User) private userRepo: Repository<User>,
     private studentsService: StudentsService,
     private usersService: UsersService,
     private notificationsService: NotificationsService,
@@ -37,11 +40,28 @@ export class ThesisService {
     return this.projectRepo.save(project);
   }
 
-  async updateProject(id: number, dto: UpdateThesisProjectDto): Promise<ThesisProject> {
+  async updateProject(id: number, dto: UpdateThesisProjectDto, userFacultadId?: number, isAdmin = false): Promise<ThesisProject> {
     const project = await this.findProjectById(id);
-    if (dto.estado && !this.canTransition(project.estado, dto.estado)) {
+
+    // Validar que el coordinador solo modifique proyectos de su facultad
+    if (userFacultadId !== undefined) {
+      const projectFacultadId = await this.getProjectFacultadId(id);
+      if (projectFacultadId !== userFacultadId) {
+        throw new ForbiddenException('No puedes modificar proyectos de otra facultad');
+      }
+    }
+
+    if (dto.estado && !this.canTransition(project.estado, dto.estado, isAdmin)) {
       throw new BadRequestException(`Transición de estado no permitida: ${project.estado} -> ${dto.estado}`);
     }
+
+    // Limpiar fecha de aprobación si se reactiva desde CULMINADO/DESAPROBADO
+    if (isAdmin && (project.estado === ThesisEstado.CULMINADO || project.estado === ThesisEstado.DESAPROBADO)) {
+      if (dto.estado === ThesisEstado.EN_REVISION || dto.estado === ThesisEstado.EN_DESARROLLO) {
+        (dto as any).fechaAprobacion = null;
+      }
+    }
+
     await this.projectRepo.update(id, dto);
     if (dto.estado === ThesisEstado.APROBADO && !project.fechaAprobacion) {
       await this.projectRepo.update(id, { fechaAprobacion: new Date() });
@@ -49,18 +69,37 @@ export class ThesisService {
     return this.findProjectById(id);
   }
 
-  private canTransition(from: ThesisEstado, to: ThesisEstado): boolean {
+  // Obtener la facultad de un proyecto de tesis
+  async getProjectFacultadId(projectId: number): Promise<number | null> {
+    const result = await this.projectRepo.query(
+      `SELECT c.facultad_id
+       FROM proyecto_tesis pt
+       INNER JOIN estudiante e ON e.id = pt.estudiante_id
+       INNER JOIN carrera c ON c.id = e.carrera_id
+       WHERE pt.id = $1`,
+      [projectId]
+    );
+    return result?.[0]?.facultad_id || null;
+  }
+
+  private canTransition(from: ThesisEstado, to: ThesisEstado, isAdmin = false): boolean {
     const transitions: Record<ThesisEstado, ThesisEstado[]> = {
       [ThesisEstado.EN_REGISTRO]: [ThesisEstado.PROPUESTO, ThesisEstado.CANCELADO],
       [ThesisEstado.PROPUESTO]: [ThesisEstado.APROBADO, ThesisEstado.DESAPROBADO, ThesisEstado.CANCELADO],
       [ThesisEstado.APROBADO]: [ThesisEstado.EN_DESARROLLO],
       [ThesisEstado.EN_DESARROLLO]: [ThesisEstado.EN_REVISION, ThesisEstado.CANCELADO],
       [ThesisEstado.EN_REVISION]: [ThesisEstado.CULMINADO, ThesisEstado.EN_DESARROLLO, ThesisEstado.CANCELADO],
-      [ThesisEstado.CULMINADO]: [],
-      [ThesisEstado.DESAPROBADO]: [],
-      [ThesisEstado.CANCELADO]: [],
+      [ThesisEstado.CULMINADO]: [],  // Solo admin puede reactivar
+      [ThesisEstado.DESAPROBADO]: [], // Solo admin puede reactivar
+      [ThesisEstado.CANCELADO]: [],   // Irreversible
     };
-    return transitions[from]?.includes(to) || false;
+
+    // Admin puede reactivar proyectos culminados o desaprobados a revisión
+    if (isAdmin && (from === ThesisEstado.CULMINADO || from === ThesisEstado.DESAPROBADO)) {
+      return [ThesisEstado.EN_REVISION, ThesisEstado.EN_DESARROLLO].includes(to);
+    }
+
+    return from === to || transitions[from]?.includes(to) || false;
   }
 
   async findProjectById(id: number): Promise<ThesisProject> {
@@ -73,7 +112,7 @@ export class ThesisService {
     return this.projectRepo.find({ where: { estudianteId: studentId }, relations: ['asignaciones'] });
   }
 
-  async findAllProjects(filters?: { estado?: ThesisEstado; area?: string; incluirInactivos?: boolean }): Promise<ThesisProject[]> {
+  async findAllProjects(filters?: { estado?: ThesisEstado; area?: string; incluirInactivos?: boolean; facultadId?: number }): Promise<ThesisProject[]> {
     const where: any = {};
     if (filters?.estado) where.estado = filters.estado;
     if (filters?.area) where.areaConocimiento = filters.area;
@@ -81,7 +120,33 @@ export class ThesisService {
     if (!filters?.incluirInactivos) {
       where.activo = true;
     }
-    return this.projectRepo.find({ where, relations: ['asignaciones', 'asignaciones.docente'] });
+
+    // Construir query base
+    const query = this.projectRepo
+      .createQueryBuilder('project')
+      .leftJoinAndSelect('project.estudiante', 'estudiante')
+      .leftJoinAndSelect('estudiante.usuario', 'usuario')
+      .leftJoinAndSelect('estudiante.carrera', 'carrera')
+      .leftJoinAndSelect('project.asignaciones', 'asignaciones')
+      .leftJoinAndSelect('asignaciones.docente', 'docente');
+
+    // Aplicar filtros de estado
+    if (filters?.estado) {
+      query.andWhere('project.estado = :estado', { estado: filters.estado });
+    }
+    if (filters?.area) {
+      query.andWhere('project.area_conocimiento = :area', { area: filters.area });
+    }
+    if (!filters?.incluirInactivos) {
+      query.andWhere('project.activo = :activo', { activo: true });
+    }
+
+    // Si se especifica facultad, filtrar por ella
+    if (filters?.facultadId) {
+      query.andWhere('carrera.facultad_id = :facultadId', { facultadId: filters.facultadId });
+    }
+
+    return query.getMany();
   }
 
   async deleteProject(id: number): Promise<void> {
@@ -95,27 +160,71 @@ export class ThesisService {
   // Asignaciones (asesor/jurado)
   async addAssignment(dto: CreateThesisAssignmentDto): Promise<ThesisAssignment> {
     const project = await this.findProjectById(dto.proyectoId);
+
+    // Validar estado del proyecto
     if (project.estado !== ThesisEstado.APROBADO && project.estado !== ThesisEstado.EN_DESARROLLO) {
-      throw new BadRequestException('Solo se pueden asignar docentes a proyectos aprobados o en desarrollo');
+      const estadoTexto = {
+        [ThesisEstado.EN_REGISTRO]: 'en registro',
+        [ThesisEstado.PROPUESTO]: 'propuesto',
+        [ThesisEstado.APROBADO]: 'aprobado',
+        [ThesisEstado.EN_DESARROLLO]: 'en desarrollo',
+        [ThesisEstado.EN_REVISION]: 'en revisión',
+        [ThesisEstado.CULMINADO]: 'culminado',
+        [ThesisEstado.DESAPROBADO]: 'desaprobado',
+        [ThesisEstado.CANCELADO]: 'cancelado',
+      }[project.estado] || project.estado;
+      throw new BadRequestException(`No se puede asignar docentes porque el proyecto está "${estadoTexto}". Solo se permiten asignaciones en proyectos aprobados o en desarrollo.`);
     }
+
+    // Validar que el usuario sea un docente asesor
     const user = await this.usersService.findById(dto.docenteId);
-    if (user.rol !== RolUsuario.ASESOR) throw new BadRequestException('El usuario no es un docente asesor');
-    const existing = await this.assignmentRepo.findOneBy({ proyectoId: dto.proyectoId, docenteId: dto.docenteId, tipo: dto.tipo });
-    if (existing) throw new BadRequestException('Este docente ya está asignado con ese tipo');
-    const assignment = this.assignmentRepo.create(dto);
+    if (user.rol !== RolUsuario.ASESOR) {
+      throw new BadRequestException(`${user.nombre} ${user.apellidoPaterno} no tiene el rol de asesor. Solo los docentes con rol de asesor pueden ser asignados.`);
+    }
+
+    // Buscar el docente por usuario_id para obtener el docente.id correcto
+    const teacher = await this.teacherRepo.findOne({ where: { usuarioId: dto.docenteId } });
+    if (!teacher) {
+      throw new NotFoundException(`No se encontró el perfil de docente para el usuario ${dto.docenteId}`);
+    }
+
+    // Validar unique_asesor_tesis: mismo docente no puede estar en el mismo proyecto (independiente del tipo)
+    const existingAnyType = await this.assignmentRepo.findOneBy({
+      proyectoId: dto.proyectoId,
+      docenteId: teacher.id,
+    });
+    if (existingAnyType) {
+      throw new BadRequestException(`${user.nombre} ${user.apellidoPaterno} ya está asignado a este proyecto como ${existingAnyType.tipo}. Un docente no puede tener múltiples asignaciones en el mismo proyecto.`);
+    }
+
+    // Validar chk_rol_jurado: asesor no debe tener rol_jurado, jurado sí debe tenerlo
+    if (dto.tipo === AsignacionTipo.ASESOR && dto.rolEspecifico) {
+      throw new BadRequestException('Un asesor no puede tener un rol específico de jurado. Los roles específicos solo aplican a jurados.');
+    }
+    if (dto.tipo === AsignacionTipo.JURADO && !dto.rolEspecifico) {
+      throw new BadRequestException('Debe especificar el rol específico del jurado (Presidente, Secretario o Vocal).');
+    }
+
+    const assignment = this.assignmentRepo.create({
+      ...dto,
+      proyectoId: Number(dto.proyectoId),
+      docenteId: Number(teacher.id),
+    });
     const saved = await this.assignmentRepo.save(assignment);
-    // Notificar al docente
+
+    // Notificar al docente (usar user.id que es el usuarioId correcto)
     await this.notificationsService.create({
-      usuarioId: dto.docenteId,
+      usuarioId: user.id,
       titulo: 'Asignación a tesis',
-      mensaje: `Has sido asignado como ${dto.tipo} del proyecto "${project.titulo}"`,
-      tipo: 'info' as any,
+      mensaje: `Has sido asignado como ${dto.tipo}${dto.rolEspecifico ? ` (${dto.rolEspecifico})` : ''} del proyecto "${project.titulo}"`,
+      tipo: NotificacionTipo.INFO,
     });
     return (saved as any) as ThesisAssignment;
   }
 
-  async removeAssignment(id: number): Promise<void> {
+  async removeAssignment(id: number): Promise<{ message: string }> {
     await this.assignmentRepo.delete(id);
+    return { message: 'Asignación eliminada exitosamente' };
   }
 
   // Entregables
@@ -157,15 +266,21 @@ export class ThesisService {
       throw new BadRequestException('Esta entrega ya fue revisada');
     }
     submission.estado = dto.estado === 'aprobado' ? EntregaEstado.APROBADO : EntregaEstado.OBSERVADO;
-    submission.retroalimentacionDocente = dto.retroalimentacion || '';
+
+    // Validar que haya retroalimentación al rechazar
+    if (submission.estado === EntregaEstado.OBSERVADO && (!dto.retroalimentacion || dto.retroalimentacion.trim().length < 10)) {
+      throw new BadRequestException('Debes proporcionar una retroalimentación de al menos 10 caracteres al rechazar el entregable');
+    }
+
+    submission.retroalimentacionAsesor = dto.retroalimentacion || '';
     const updated = await this.submissionRepo.save(submission);
     // Notificar al estudiante
     const project = submission.entregable.proyecto;
     await this.notificationsService.create({
       usuarioId: project.estudianteId,
       titulo: `Entrega ${submission.estado === EntregaEstado.APROBADO ? 'aprobada' : 'observada'}`,
-      mensaje: `Tu entrega "${submission.tituloEntrega}" ha sido ${submission.estado}. ${dto.retroalimentacion || ''}`,
-      tipo: submission.estado === EntregaEstado.APROBADO ? ('exito' as any) : ('advertencia' as any),
+      mensaje: `Tu entrega "${submission.entregable?.nombre || 'Sin nombre'}" ha sido ${submission.estado}. ${dto.retroalimentacion || ''}`,
+      tipo: submission.estado === EntregaEstado.APROBADO ? NotificacionTipo.EXITO : NotificacionTipo.ADVERTENCIA,
     });
     return updated;
   }
@@ -199,5 +314,87 @@ export class ThesisService {
       culminados,
       porArea: Object.entries(porArea).map(([area, count]) => ({ area, count })),
     };
+  }
+
+  // Obtener proyectos de tesis asignados a un asesor específico
+  async getProjectsByAdvisor(docenteId: number): Promise<ThesisProject[]> {
+    try {
+      // Buscar proyectos donde el docente está asignado como asesor o jurado
+      const projects = await this.projectRepo
+        .createQueryBuilder('project')
+        .leftJoinAndSelect('project.estudiante', 'estudiante')
+        .leftJoinAndSelect('estudiante.usuario', 'usuario')
+        .leftJoinAndSelect('estudiante.carrera', 'carrera')
+        .leftJoinAndSelect('project.asignaciones', 'asignaciones')
+        .leftJoinAndSelect('asignaciones.docente', 'docente')
+        .leftJoinAndSelect('project.entregables', 'entregables')
+        .leftJoinAndSelect('entregables.entregas', 'entregas')
+        .where('asignaciones.docente_id = :docenteId', { docenteId })
+        .andWhere('project.activo = :activo', { activo: true })
+        .orderBy('project.fecha_registro', 'DESC')
+        .getMany();
+
+      return projects;
+    } catch (error) {
+      console.error('Error en getProjectsByAdvisor:', error);
+      return [];
+    }
+  }
+
+  // Sugerir asesor (solo estudiante)
+  async suggestAdvisor(projectId: number, asesorId: number, estudianteId: number): Promise<ThesisProject> {
+    const project = await this.findProjectById(projectId);
+
+    // Validar que el proyecto pertenezca al estudiante
+    if (project.estudianteId !== estudianteId) {
+      throw new ForbiddenException('No puedes sugerir asesor para este proyecto');
+    }
+
+    // Validar estado permitido para sugerir asesor
+    const estadosPermitidos = [ThesisEstado.EN_REGISTRO, ThesisEstado.PROPUESTO, ThesisEstado.APROBADO];
+    if (!estadosPermitidos.includes(project.estado)) {
+      throw new BadRequestException(`No puedes sugerir asesor en estado "${project.estado}"`);
+    }
+
+    // Validar que el docente exista y tenga rol de asesor
+    const advisor = await this.usersService.findById(asesorId);
+    if (advisor.rol !== RolUsuario.ASESOR) {
+      throw new BadRequestException('El usuario seleccionado no tiene rol de asesor');
+    }
+
+    // Guardar sugerencia
+    project.asesorSugeridoId = asesorId;
+    project.fechaSugerenciaAsesor = new Date();
+    const updated = await this.projectRepo.save(project);
+
+    // Notificar al coordinador de la facultad del estudiante
+    try {
+      const student = await this.studentsService.findById(project.estudianteId);
+      const studentName = student?.usuario?.nombre + ' ' + (student?.usuario?.apellidoPaterno || '');
+
+      // Buscar coordinadores de la facultad del estudiante
+      const coordinadores = await this.userRepo.query(
+        `SELECT u.id FROM usuario u
+         INNER JOIN usuario_rol ur ON ur.usuario_id = u.id
+         INNER JOIN rol r ON r.id = ur.rol_id
+         INNER JOIN docente d ON d.usuario_id = u.id
+         INNER JOIN carrera c ON c.id = d.carrera_id
+         WHERE r.nombre = 'Coordinador' AND c.facultad_id = $1`,
+        [student?.carrera?.facultadId]
+      );
+
+      for (const coord of coordinadores) {
+        await this.notificationsService.create({
+          usuarioId: coord.id,
+          titulo: 'Sugerencia de asesor recibida',
+          mensaje: `${studentName} ha sugerido a ${advisor.nombre} ${advisor.apellidoPaterno} como asesor para su proyecto "${project.titulo}"`,
+          tipo: NotificacionTipo.INFO,
+        });
+      }
+    } catch (error) {
+      console.error('Error notificando a coordinadores:', error);
+    }
+
+    return updated;
   }
 }

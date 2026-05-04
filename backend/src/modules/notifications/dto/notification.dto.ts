@@ -1,5 +1,4 @@
-import { IsInt, IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
-import { NotificacionTipo } from '../entities/notification.entity';
+import { IsInt, IsString, IsOptional, IsBoolean, IsObject } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsInt()
@@ -11,9 +10,17 @@ export class CreateNotificationDto {
   @IsString()
   mensaje: string;
 
-  @IsEnum(NotificacionTipo)
+  @IsString()
   @IsOptional()
-  tipo?: NotificacionTipo;
+  tipo?: string;
+
+  @IsString()
+  @IsOptional()
+  prioridad?: string;
+
+  @IsObject()
+  @IsOptional()
+  datos?: any;
 }
 
 export class MarkAsReadDto {

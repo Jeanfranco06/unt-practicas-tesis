@@ -3,5 +3,8 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "framer-motion": "^12.38.0"
+  },
+  "devDependencies": {
+    "@types/multer": "^2.1.0"
   }
 }

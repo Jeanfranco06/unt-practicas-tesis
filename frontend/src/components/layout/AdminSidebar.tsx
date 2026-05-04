@@ -17,6 +17,8 @@ import {
   X,
   Settings,
   UserCog,
+  UserCircle,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,31 +28,42 @@ import { useSidebar } from '@/components/layout/SidebarContext';
 const navItemsByRole: Record<UserRole, { href: string; label: string; icon: any }[]> = {
   Administrador: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
     { href: '/dashboard/users', label: 'Usuarios', icon: Users },
+    { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
+    { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
+    { href: '/dashboard/representatives', label: 'Representantes', icon: UserCircle },
     { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
     { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
     { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
     { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
   ],
   Coordinador: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+    { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
+    { href: '/dashboard/students', label: 'Estudiantes', icon: Users },
+    { href: '/dashboard/representatives', label: 'Representantes', icon: UserCircle },
     { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
     { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/students', label: 'Estudiantes', icon: Users },
     { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
     { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
   ],
   Asesor: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
-    { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/students', label: 'Estudiantes', icon: Users },
+    { href: '/dashboard/advisor', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+    { href: '/dashboard/advisor/internships', label: 'Prácticas', icon: Briefcase },
+    { href: '/dashboard/advisor/thesis', label: 'Tesis', icon: BookOpen },
+    { href: '/dashboard/advisor/students', label: 'Estudiantes', icon: Users },
   ],
-  Representante_Empresa: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
-    { href: '/dashboard/companies', label: 'Mi Empresa', icon: Building2 },
+  RepresentanteEmpresa: [
+    { href: '/dashboard/company', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+    { href: '/dashboard/company/offers', label: 'Mis Ofertas', icon: Briefcase },
+    { href: '/dashboard/company/applications', label: 'Postulaciones', icon: Users },
+    { href: '/dashboard/company/internships', label: 'Prácticas Activas', icon: GraduationCap },
+    { href: '/dashboard/company/agreements', label: 'Convenios', icon: FileText },
+    { href: '/dashboard/company/profile', label: 'Mi Empresa', icon: Building2 },
   ],
   Estudiante: [],
 };
@@ -75,7 +88,8 @@ export function AdminSidebar() {
 
   const navItems = role ? navItemsByRole[role] || [] : [];
 
-  if (!role || role === 'Estudiante') return null;
+  // No mostrar para roles que tienen sidebar específico
+  if (!role || role === 'Estudiante' || role === 'Coordinador' || role === 'RepresentanteEmpresa') return null;
 
   return (
     <>

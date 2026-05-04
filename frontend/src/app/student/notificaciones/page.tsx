@@ -80,7 +80,7 @@ export default function NotificationsPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/notifications`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/notifications`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -105,7 +105,7 @@ export default function NotificationsPage() {
       if (!token) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/notifications/${id}/read`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/notifications/${id}/read`,
         {
           method: 'PATCH',
           headers: {

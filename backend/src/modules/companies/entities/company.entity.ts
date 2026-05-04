@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
 import { Agreement } from '../../agreements/entities/agreement.entity';
 import { InternshipOffer } from '../../internships/entities/internship-offer.entity';
+import { CompanyRepresentative } from './company-representative.entity';
 
 @Entity('empresa')
 export class Company {
@@ -25,9 +26,6 @@ export class Company {
   @Column({ name: 'email_contacto', length: 255, nullable: true })
   emailContacto: string;
 
-  @Column({ name: 'representante_nombre', length: 200, nullable: true })
-  representanteNombre: string;
-
   @Column({ default: true })
   activo: boolean;
 
@@ -39,4 +37,7 @@ export class Company {
 
   @OneToMany(() => InternshipOffer, (offer) => offer.empresa)
   ofertas: InternshipOffer[];
+
+  @OneToMany(() => CompanyRepresentative, (representative) => representative.empresa)
+  representantes: CompanyRepresentative[];
 }

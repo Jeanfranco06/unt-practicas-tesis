@@ -6,9 +6,11 @@ export interface Student {
   usuario?: {
     id: number;
     nombre: string;
-    apellido: string;
+    apellidoPaterno: string;
+    apellidoMaterno: string;
     email: string;
   };
+  carreraId: number;
   codigoUniversitario: string;
   anioIngreso: number;
   escuelaProfesional: string;
@@ -20,6 +22,7 @@ export interface Student {
 
 export interface StudentFormData {
   usuarioId: number | '';
+  carreraId: number | '';
   codigoUniversitario: string;
   anioIngreso: number | '';
   escuelaProfesional: string;
@@ -59,8 +62,10 @@ export function normalizeStudentFormData(data: StudentFormData) {
   return {
     ...data,
     usuarioId: data.usuarioId === '' ? 0 : Number(data.usuarioId),
+    carreraId: data.carreraId === '' ? 0 : Number(data.carreraId),
     anioIngreso: data.anioIngreso === '' ? new Date().getFullYear() : Number(data.anioIngreso),
     creditosAprobados: data.creditosAprobados === '' ? 0 : Number(data.creditosAprobados),
     promedioGeneral: data.promedioGeneral === '' ? undefined : Number(data.promedioGeneral),
+    expedienteAcademicoUrl: data.expedienteAcademicoUrl === '' ? undefined : data.expedienteAcademicoUrl,
   };
 }

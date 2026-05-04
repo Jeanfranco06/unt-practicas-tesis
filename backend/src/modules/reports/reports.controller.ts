@@ -1,15 +1,23 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards, ForbiddenException } from '@nestjs/common';
 import { Response } from 'express';
 import { ReportsService, ReportFilters } from './reports.service';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolUsuario } from '../users/entities/user.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
+import { Repository } from 'typeorm';
 
 @Controller('reports')
 @UseGuards(AuthGuard, RolesGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+  ) {}
 
   // ==================== REPORTES DE OPERACIÓN (DÍA A DÍA) ====================
 
@@ -300,5 +308,84 @@ export class ReportsController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=reporte_estado_convenios.pdf');
     res.send(pdf);
+  }
+
+  // ==================== REPORTES DE FACULTAD (COORDINADOR) ====================
+
+  @Get('faculty/internships')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyInternships(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+  ) {
+    // Obtener la facultad del coordinador desde su perfil de docente
+    const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+    return this.reportsService.getFacultyInternships(facultadId, filters);
+  }
+
+  @Get('faculty/thesis')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyThesis(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+  ) {
+    const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+    return this.reportsService.getFacultyThesis(facultadId, filters);
+  }
+
+  @Get('faculty/students')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyStudents(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+  ) {
+    const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+    return this.reportsService.getFacultyStudents(facultadId, filters);
+  }
+
+  @Get('faculty/advisors')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyAdvisors(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+  ) {
+    const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+    return this.reportsService.getFacultyAdvisors(facultadId, filters);
+  }
+
+  @Get('faculty/agreements')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyAgreements(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+  ) {
+    const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+    return this.reportsService.getFacultyAgreements(facultadId, filters);
+  }
+
+  @Get('faculty/stats')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyStats(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+  ) {
+    const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+    return this.reportsService.getFacultyStats(facultadId, filters);
+  }
+
+  private async getFacultadIdFromCoordinator(userId: number): Promise<number> {
+    // Obtener el docente asociado al usuario y su facultad
+    const result = await this.userRepo.query(
+      `SELECT c.facultad_id 
+       FROM docente d 
+       INNER JOIN carrera c ON c.id = d.carrera_id 
+       WHERE d.usuario_id = $1 
+       LIMIT 1`,
+      [userId]
+    );
+    if (!result || result.length === 0) {
+      throw new ForbiddenException('No se encontró la facultad asociada al coordinador');
+    }
+    return result[0].facultad_id;
   }
 }

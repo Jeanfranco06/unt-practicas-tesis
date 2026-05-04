@@ -1,8 +1,11 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+
 type ToastVariant = 'default' | 'destructive';
 
 interface ToastOptions {
   title?: string;
-  description?: string;
+  description?: string | React.ReactNode;
   variant?: ToastVariant;
 }
 
@@ -34,10 +37,27 @@ export function useToast() {
         isDestructive ? 'border-red-500/40' : 'border-emerald-500/40',
       ].join(' ');
 
-      toast.innerHTML = `
-        <div class="text-sm font-semibold">${title || (isDestructive ? 'Error' : 'Operación exitosa')}</div>
-        ${description ? `<div class="mt-1 text-sm text-slate-300">${description}</div>` : ''}
-      `;
+      // Create title element
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'text-sm font-semibold';
+      titleDiv.textContent = title || (isDestructive ? 'Error' : 'Operación exitosa');
+      toast.appendChild(titleDiv);
+
+      // Create description element
+      if (description) {
+        const descDiv = document.createElement('div');
+        descDiv.className = 'mt-1 text-sm text-slate-300';
+
+        if (typeof description === 'string') {
+          descDiv.textContent = description;
+        } else {
+          // Render React node
+          const root = createRoot(descDiv);
+          root.render(description as React.ReactElement);
+        }
+
+        toast.appendChild(descDiv);
+      }
 
       container.appendChild(toast);
 

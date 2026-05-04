@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Briefcase,
@@ -12,7 +13,11 @@ import {
   GraduationCap,
   Building2,
   Plus,
+  TrendingUp,
+  ArrowRight,
+  Bell,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { API_URL, fetchWithAuth } from './_lib/api';
@@ -44,7 +49,7 @@ interface DashboardStats {
 }
 
 export default function CompanyDashboard() {
-  const { role } = useAuth();
+  const { role, user, isAuthenticated } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
@@ -57,6 +62,7 @@ export default function CompanyDashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [isLoadingEmpresaId, setIsLoadingEmpresaId] = useState(true);
 
   // Redirigir si no es representante de empresa
   useEffect(() => {
@@ -65,15 +71,37 @@ export default function CompanyDashboard() {
     }
   }, [role, router]);
 
-  // Obtener empresaId del localStorage
+  // Obtener empresaId - primero de localStorage, si no existe, del API
   useEffect(() => {
-    const storedEmpresaId = localStorage.getItem('empresaId');
-    if (storedEmpresaId) {
-      setEmpresaId(storedEmpresaId);
-    } else {
-      setIsLoading(false);
+    const getEmpresaId = async () => {
+      // Primero intentar de localStorage
+      const storedEmpresaId = localStorage.getItem('empresaId');
+      if (storedEmpresaId) {
+        setEmpresaId(storedEmpresaId);
+        setIsLoadingEmpresaId(false);
+        return;
+      }
+
+      // Si no está en localStorage, obtener del API usando el user ID
+      if (user?.sub) {
+        try {
+          const data = await fetchWithAuth(`${API_URL}/api/company-representatives/user/${user.sub}`);
+          if (data?.empresaId) {
+            const newEmpresaId = data.empresaId.toString();
+            setEmpresaId(newEmpresaId);
+            localStorage.setItem('empresaId', newEmpresaId);
+          }
+        } catch (err) {
+          console.error('Error al obtener empresaId:', err);
+        }
+      }
+      setIsLoadingEmpresaId(false);
+    };
+
+    if (isAuthenticated) {
+      getEmpresaId();
     }
-  }, []);
+  }, [user, isAuthenticated]);
 
   // Cargar estadísticas
   useEffect(() => {
@@ -162,7 +190,7 @@ export default function CompanyDashboard() {
     },
   ];
 
-  if (isLoading) {
+  if (isLoadingEmpresaId || isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -178,11 +206,19 @@ export default function CompanyDashboard() {
       className="space-y-8"
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">Panel de Empresa</h1>
-        <p className="text-muted-foreground">
-          Gestión de ofertas, postulaciones y convenios
-        </p>
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-foreground">Panel de Empresa</h1>
+          <p className="text-muted-foreground">
+            Gestión de ofertas, postulaciones y convenios
+          </p>
+        </div>
+        <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25">
+          <Link href="/dashboard/company/offers/new">
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Oferta
+          </Link>
+        </Button>
       </motion.div>
 
       {/* Stats Grid */}

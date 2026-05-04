@@ -1,7 +1,9 @@
+export type UserRole = 'Administrador' | 'Coordinador' | 'Asesor' | 'Estudiante' | 'RepresentanteEmpresa';
+
 export interface JWTPayload {
   sub: number;
   email: string;
-  rol: 'Estudiante' | 'Administrador' | 'Coordinador' | 'Asesor' | 'Representante_Empresa';
+  roles: UserRole[];
   iat: number;
   exp: number;
 }
@@ -22,21 +24,81 @@ export function parseJWT(token: string): JWTPayload | null {
   }
 }
 
-export function getUserRole(token: string): JWTPayload['rol'] | null {
+export function getUserRoles(token: string): UserRole[] | null {
   const payload = parseJWT(token);
-  return payload?.rol || null;
+  return payload?.roles || null;
 }
 
-export function getDashboardRouteByRole(role: JWTPayload['rol'] | null): string {
-  switch (role) {
-    case 'Estudiante':
-      return '/student/dashboard';
-    case 'Administrador':
-    case 'Coordinador':
-    case 'Asesor':
-    case 'Representante_Empresa':
-      return '/dashboard';
-    default:
-      return '/login';
+export function hasRole(roles: UserRole[] | null, roleToCheck: UserRole): boolean {
+  if (!roles || !Array.isArray(roles)) return false;
+  return roles.includes(roleToCheck);
+}
+
+export function hasAnyRole(roles: UserRole[] | null, rolesToCheck: UserRole[]): boolean {
+  if (!roles || !Array.isArray(roles)) return false;
+  return rolesToCheck.some(role => roles.includes(role));
+}
+
+export function getDashboardRouteByRoles(roles: UserRole[] | null): string {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return '/login';
   }
+
+  // Priority order for dashboard routing: Admin roles first, then others
+  if (roles.includes('Administrador')) {
+    return '/dashboard';
+  }
+
+  if (roles.includes('Coordinador')) {
+    return '/dashboard/coordinator';
+  }
+
+  if (roles.includes('Asesor')) {
+    return '/dashboard/advisor';
+  }
+
+  if (roles.includes('RepresentanteEmpresa')) {
+    return '/dashboard/company';
+  }
+
+  if (roles.includes('Estudiante')) {
+    return '/student/dashboard';
+  }
+
+  return '/login';
+}
+
+// Backward compatibility function
+export function getDashboardRouteByRole(role: UserRole | null): string {
+  if (!role) return '/login';
+  return getDashboardRouteByRoles([role]);
+}
+
+export function getPrimaryRole(roles: UserRole[] | null): UserRole | null {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return null;
+  }
+
+  // Priority order for primary role selection
+  const priorityOrder: UserRole[] = [
+    'Administrador',
+    'Coordinador', 
+    'Asesor',
+    'RepresentanteEmpresa',
+    'Estudiante'
+  ];
+
+  for (const priorityRole of priorityOrder) {
+    if (roles.includes(priorityRole)) {
+      return priorityRole;
+    }
+  }
+
+  return roles[0]; // fallback to first role if no priority match
+}
+
+// Backward compatibility - alias for getPrimaryRole
+export function getUserRole(token: string): UserRole | null {
+  const roles = getUserRoles(token);
+  return getPrimaryRole(roles);
 }
