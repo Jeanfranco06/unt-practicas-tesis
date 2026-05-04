@@ -93,7 +93,7 @@ export class UsersService {
 
   /**
    * Asigna el rol primario basado en prioridad:
-   * ADMIN > ASESOR > COORDINADOR > ESTUDIANTE > REPRESENTANTE_EMPRESA
+   * ADMIN > COORDINADOR > ASESOR > ESTUDIANTE > REPRESENTANTE_EMPRESA
    */
   private assignPrimaryRole(roles: Role[]): RolUsuario | null {
     if (roles.length === 0) {
@@ -102,8 +102,8 @@ export class UsersService {
 
     const rolePriority: Record<string, number> = {
       [RoleName.ADMIN]: 0,
-      [RoleName.ASESOR]: 1,
-      [RoleName.COORDINADOR]: 2,
+      [RoleName.COORDINADOR]: 1,  // Coordinador tiene mayor prioridad que Asesor
+      [RoleName.ASESOR]: 2,
       [RoleName.ESTUDIANTE]: 3,
       [RoleName.REPRESENTANTE_EMPRESA]: 4,
     };

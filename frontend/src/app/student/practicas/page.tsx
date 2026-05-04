@@ -45,38 +45,6 @@ const itemVariants = {
   },
 };
 
-// Mock data
-const practicas = [
-  {
-    id: 1,
-    empresa: 'Tech Solutions Perú S.A.C.',
-    cargo: 'Desarrollador Frontend',
-    fechaInicio: '2024-03-01',
-    fechaFin: '2024-08-31',
-    estado: 'active',
-    horas: 240,
-    horasTotales: 320,
-    supervisor: 'Ing. Carlos Mendoza',
-    progreso: 75,
-    documentos: 5,
-    documentosTotales: 8,
-  },
-  {
-    id: 2,
-    empresa: 'Innovación Digital EIRL',
-    cargo: 'Pasante de Sistemas',
-    fechaInicio: '2023-08-01',
-    fechaFin: '2024-02-28',
-    estado: 'completed',
-    horas: 320,
-    horasTotales: 320,
-    supervisor: 'Ing. María López',
-    progreso: 100,
-    documentos: 8,
-    documentosTotales: 8,
-  },
-];
-
 const filtros = ['Todas', 'Activas', 'Completadas', 'Pendientes'];
 
 export default function PracticasPage() {
@@ -85,6 +53,7 @@ export default function PracticasPage() {
   const [busqueda, setBusqueda] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [practicaActual, setPracticaActual] = useState<any>(null);
+  const [practicas, setPracticas] = useState<any[]>([]);
 
   useEffect(() => {
     loadPractica();
@@ -93,24 +62,94 @@ export default function PracticasPage() {
   const loadPractica = async () => {
     try {
       setIsLoading(true);
-      const data = await fetchWithAuth(`${API_URL}/api/internships/my-internship`);
-      if (data && !data.message) {
-        setPracticaActual(data);
+      // Cargar práctica actual
+      const currentData = await fetchWithAuth(`${API_URL}/api/internships/my-internship`);
+      if (currentData && !currentData.message) {
+        setPracticaActual(currentData);
+        
+        // Check if internship has started or is in the future
+        const startDate = currentData.fechaInicio || currentData.oferta?.fechaInicioPractica;
+        const hasStarted = startDate ? new Date(startDate) <= new Date() : true;
+        const daysUntilStart = startDate ? 
+          Math.ceil((new Date(startDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+        
+        // Add practice data with calculated state
+        const practiceWithState = {
+          ...currentData,
+          _calculatedState: !hasStarted ? 'starting_soon' : currentData.estado,
+          _daysUntilStart: daysUntilStart,
+          _hasStarted: hasStarted,
+        };
+        
+        // Agregar a la lista de prácticas
+        setPracticas([practiceWithState]);
+      }
+      
+      // Cargar postulaciones para mostrar prácticas completadas y en proceso
+      const applicationsData = await fetchWithAuth(`${API_URL}/api/internships/my-applications`);
+      if (applicationsData && Array.isArray(applicationsData)) {
+        // Convertir postulaciones a formato de prácticas
+        const practicesFromApplications = applicationsData.map((app: any) => ({
+          id: `app-${app.id}`, // Prefix to avoid ID collision with real internships
+          empresa: app.oferta?.empresa?.razonSocial || 'Empresa no especificada',
+          cargo: app.oferta?.titulo || 'Cargo no especificado',
+          fechaInicio: app.fechaInicio || '',
+          fechaFin: app.fechaFin || '',
+          // Map application status correctly - approved application is NOT a completed practice
+          estado: app.estado === 'aprobado' ? 'approved' : app.estado === 'rechazado' ? 'rejected' : 'pending',
+          horas: app.horasAcumuladas || 0,
+          horasTotales: 320,
+          supervisor: app.supervisor || 'Sin asignar',
+          progreso: app.progreso || 0,
+          documentos: app.documentosEntregados || 0,
+          documentosTotales: 8,
+          postulacion: app,
+          tipo: 'postulacion' // Mark as application, not practice
+        }));
+        
+        setPracticas(prev => {
+          const allPractices = [...prev];
+          // Get the real internship's postulacionId to avoid duplicates
+          const realInternshipPostulacionId = currentData?.postulacionId;
+          
+          practicesFromApplications.forEach((newPractice: any) => {
+            // Skip if this application already has a real internship
+            if (realInternshipPostulacionId && newPractice.postulacion?.id === realInternshipPostulacionId) {
+              return;
+            }
+            // Skip if already in list
+            if (!allPractices.find(p => p.id === newPractice.id)) {
+              allPractices.push(newPractice);
+            }
+          });
+          return allPractices;
+        });
       }
     } catch (err: any) {
-      console.error('Error cargando práctica:', err);
+      console.error('Error cargando prácticas:', err);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar tus prácticas',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const practicasFiltradas = practicas.filter((p) => {
-    const matchesBusqueda = p.empresa.toLowerCase().includes(busqueda.toLowerCase()) ||
-      p.cargo.toLowerCase().includes(busqueda.toLowerCase());
+    const empresaStr = typeof p.empresa === 'string' ? p.empresa : 
+                      p.empresa?.razonSocial || 
+                      p.empresa?.nombreComercial || 
+                      'Empresa no especificada';
+    const cargoStr = typeof p.cargo === 'string' ? p.cargo : 'Cargo no especificado';
+    
+    const matchesBusqueda = empresaStr.toLowerCase().includes(busqueda.toLowerCase()) ||
+      cargoStr.toLowerCase().includes(busqueda.toLowerCase());
     const matchesFiltro = filtroActivo === 'Todas' ||
-      (filtroActivo === 'Activas' && p.estado === 'active') ||
+      (filtroActivo === 'Activas' && (p.estado === 'active' || p.estado === 'approved')) ||
       (filtroActivo === 'Completadas' && p.estado === 'completed') ||
-      (filtroActivo === 'Pendientes' && p.estado === 'pending');
+      (filtroActivo === 'Pendientes' && (p.estado === 'pending' || p.estado === 'postulado'));
     return matchesBusqueda && matchesFiltro;
   });
 
@@ -230,39 +269,59 @@ export default function PracticasPage() {
                         <Building2 className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground">{practica.empresa}</h3>
+                        <h3 className="font-semibold text-foreground">
+                          {typeof practica.empresa === 'string' ? practica.empresa : practica.empresa?.razonSocial || 'Empresa no especificada'}
+                        </h3>
                         <p className="text-sm text-muted-foreground">{practica.cargo}</p>
                       </div>
                     </div>
                     <StatusBadge
-                      variant={practica.estado as any}
-                      pulse={practica.estado === 'active'}
+                      variant={practica._calculatedState === 'starting_soon' ? 'pending' : 
+                               practica.estado === 'approved' ? 'pending' : practica.estado as any}
+                      pulse={practica.estado === 'active' && practica._hasStarted !== false}
                     >
-                      {practica.estado === 'active' ? 'Activo' : 'Completado'}
+                      {practica._calculatedState === 'starting_soon' ? `Por iniciar (${practica._daysUntilStart} días)` :
+                       practica.estado === 'active' ? 'Activo' : 
+                       practica.estado === 'completed' ? 'Completado' : 
+                       practica.estado === 'approved' ? 'Aprobado (Por iniciar)' : 
+                       practica.estado === 'rejected' ? 'Rechazado' : 'Pendiente'}
                     </StatusBadge>
                   </div>
                 </div>
 
                 {/* Progress */}
                 <div className="px-6 py-4 bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-foreground">
-                      Progreso
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">
-                      {practica.progreso}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${practica.progreso}%` }}
-                      transition={{ duration: 0.8, delay: 0.2 }}
-                      className={`h-full rounded-full ${
-                        practica.progreso === 100 ? 'bg-emerald-500' : 'bg-primary'
-                      }`}
-                    />
-                  </div>
+                  {practica._calculatedState === 'starting_soon' ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">
+                        Inicio de práctica
+                      </span>
+                      <span className="text-sm font-semibold text-amber-600">
+                        En {practica._daysUntilStart} días
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-foreground">
+                          Progreso
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {practica.progreso}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${practica.progreso}%` }}
+                          transition={{ duration: 0.8, delay: 0.2 }}
+                          className={`h-full rounded-full ${
+                            practica.progreso === 100 ? 'bg-emerald-500' : 'bg-primary'
+                          }`}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Details */}

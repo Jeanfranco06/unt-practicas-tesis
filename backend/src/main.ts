@@ -52,10 +52,18 @@ async function bootstrap() {
 
   // Crear directorio uploads si no existe (nota: sin la 's' final para coincidir con multer)
   const uploadsDir = path.join(process.cwd(), 'upload', 'convenios');
+  const cvUploadsDir = path.join(process.cwd(), 'upload', 'cv');
+  
   console.log('📁 Directorio uploads:', uploadsDir);
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
     console.log('✅ Directorio uploads creado');
+  }
+  
+  console.log('📁 Directorio CV uploads:', cvUploadsDir);
+  if (!fs.existsSync(cvUploadsDir)) {
+    fs.mkdirSync(cvUploadsDir, { recursive: true });
+    console.log('✅ Directorio CV uploads creado');
   }
 
   // Servir archivos estáticos desde upload/ (nota: sin la 's' final)

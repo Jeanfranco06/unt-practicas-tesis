@@ -71,6 +71,7 @@ export default function OfertasPage() {
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applicationData, setApplicationData] = useState({
     cartaPresentacion: '',
+    cvFile: null as File | null,
     cvUrl: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,9 +86,10 @@ export default function OfertasPage() {
     try {
       setIsLoading(true);
       const data = await fetchWithAuth(`${API_URL}/api/internships/offers`);
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
       // Filtrar solo ofertas publicadas y no vencidas
       const now = new Date();
-      const validOffers = data.filter((o: Offer) => {
+      const validOffers = list.filter((o: Offer) => {
         const finPostulacion = new Date(o.fechaFinPostulacion);
         return o.estado === 'publicada' && finPostulacion >= now;
       });
@@ -106,7 +108,8 @@ export default function OfertasPage() {
   const loadMyApplications = async () => {
     try {
       const data = await fetchWithAuth(`${API_URL}/api/internships/my-applications`);
-      setMyApplications(data);
+      const apps = Array.isArray(data) ? data : (data?.data ?? []);
+      setMyApplications(apps);
     } catch (err: any) {
       // Silencioso - no mostrar error si falla la carga de postulaciones
       console.error('Error cargando postulaciones:', err);
@@ -123,19 +126,22 @@ export default function OfertasPage() {
 
     setIsSubmitting(true);
     try {
-      // Construir el body solo con campos válidos
-      const body: any = {
-        ofertaId: selectedOffer.id,
-        cartaPresentacion: applicationData.cartaPresentacion,
-      };
-      // Solo incluir cvUrl si tiene valor (evita error de validación @IsUrl con string vacío)
-      if (applicationData.cvUrl && applicationData.cvUrl.trim()) {
-        body.documentoCvUrl = applicationData.cvUrl.trim();
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('ofertaId', selectedOffer.id.toString());
+      formData.append('cartaPresentacion', applicationData.cartaPresentacion);
+      
+      // Add CV file if provided
+      if (applicationData.cvFile) {
+        formData.append('cvFile', applicationData.cvFile);
+      } else if (applicationData.cvUrl && applicationData.cvUrl.trim()) {
+        // Fallback to URL if no file but URL provided
+        formData.append('documentoCvUrl', applicationData.cvUrl.trim());
       }
 
       await fetchWithAuth(`${API_URL}/api/internships/applications`, {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: formData, // Don't set Content-Type header, let browser set it with boundary
       });
 
       toast({
@@ -145,7 +151,7 @@ export default function OfertasPage() {
 
       setShowApplyModal(false);
       setSelectedOffer(null);
-      setApplicationData({ cartaPresentacion: '', cvUrl: '' });
+      setApplicationData({ cartaPresentacion: '', cvFile: null, cvUrl: '' });
       // Actualizar lista de postulaciones para deshabilitar el botón
       await loadMyApplications();
     } catch (err: any) {
@@ -422,20 +428,47 @@ export default function OfertasPage() {
                   <div className="space-y-2">
                     <Label htmlFor="cv" className="flex items-center gap-2">
                       <Upload className="w-4 h-4" />
-                      URL de tu CV (opcional)
+                      Tu CV (opcional)
                     </Label>
                     <Input
                       id="cv"
-                      type="url"
-                      placeholder="https://ejemplo.com/tu-cv.pdf"
-                      value={applicationData.cvUrl}
-                      onChange={(e) =>
-                        setApplicationData((prev) => ({ ...prev, cvUrl: e.target.value }))
-                      }
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setApplicationData((prev) => ({ 
+                            ...prev, 
+                            cvFile: file,
+                            cvUrl: '' // Clear URL when file is selected
+                          }));
+                        }
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Puedes subir tu CV a Google Drive, Dropbox, etc. y pegar el enlace aquí
+                      Sube tu CV en formato PDF, DOC o DOCX (máximo 5MB)
                     </p>
+                    
+                    {/* Fallback URL input */}
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <Label htmlFor="cvUrl" className="text-xs text-muted-foreground">
+                        O si prefieres, puedes pegar un enlace a tu CV:
+                      </Label>
+                      <Input
+                        id="cvUrl"
+                        type="url"
+                        placeholder="https://ejemplo.com/tu-cv.pdf"
+                        value={applicationData.cvUrl}
+                        onChange={(e) => {
+                          setApplicationData((prev) => ({ 
+                            ...prev, 
+                            cvUrl: e.target.value,
+                            cvFile: null // Clear file when URL is entered
+                          }));
+                        }}
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
                 </div>
 

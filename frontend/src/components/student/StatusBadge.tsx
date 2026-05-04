@@ -51,7 +51,7 @@ export function StatusBadge({
   className,
   pulse = false,
 }: StatusBadgeProps) {
-  const config = statusConfig[variant || 'default'];
+  const config = statusConfig[variant || 'default'] || statusConfig.default;
 
   return (
     <motion.span

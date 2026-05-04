@@ -101,7 +101,7 @@ export async function seed(db: DataSource) {
   // ==================== EMPRESAS REALISTAS ====================
   const companies = [
     {
-      ruc: '20601234567',
+      ruc: '20601234565',
       razonSocial: 'Desarrollo Digital Perú S.A.C.',
       nombreComercial: 'DigeSoft',
       direccion: 'Av. República de Panamá 3410, San Isidro, Lima',
@@ -114,7 +114,7 @@ export async function seed(db: DataSource) {
       activo: true,
     },
     {
-      ruc: '20549876543',
+      ruc: '20549876545',
       razonSocial: 'Soluciones Informáticas del Norte E.I.R.L.',
       nombreComercial: 'SI Norte',
       direccion: 'Av. Larco 1234, Trujillo',

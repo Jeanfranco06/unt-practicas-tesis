@@ -21,6 +21,7 @@ import { Agreement } from '../agreements/entities/agreement.entity';
 import { Company } from '../companies/entities/company.entity';
 import { Student } from '../students/entities/student.entity';
 import { User } from '../users/entities/user.entity';
+import { HoursTracking } from '../internships/entities/hours-tracking.entity';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { User } from '../users/entities/user.entity';
       Company,
       Student,
       User,
+      HoursTracking,
     ]),
     InternshipsModule,
     ThesisModule,

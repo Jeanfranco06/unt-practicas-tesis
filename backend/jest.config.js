@@ -8,7 +8,8 @@ module.exports = {
     '/test/e2e/',
     '/dist/',
   ],
-  collectCoverage: true,
+  // Solo con `jest --coverage` o `npm test`; si no, un solo .spec no arrastra cobertura global y falla coverageThreshold
+  collectCoverage: false,
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'src/**/*.ts',

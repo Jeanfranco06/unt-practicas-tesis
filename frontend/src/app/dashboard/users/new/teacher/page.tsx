@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Mail, UserCog, Eye, EyeOff, CheckCircle2, Building2, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useRouter } from 'next/navigation';
+import { trpc } from '@/lib/trpc';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -23,13 +25,11 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } },
 };
 
-// Mock data - en producción esto vendría de la API
-const careers = [
-  { id: 1, name: 'Ingeniería de Sistemas' },
-  { id: 2, name: 'Ingeniería Civil' },
-  { id: 3, name: 'Ingeniería Electrónica' },
-  { id: 4, name: 'Administración' },
-];
+interface Career {
+  id: number;
+  nombre: string;
+  codigo: string;
+}
 
 const categories = [
   'Auxiliar',
@@ -81,6 +81,16 @@ function generate10CharUsername(nombre: string, apellidoPaterno: string, apellid
 export default function NewTeacherPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromCoordinator = searchParams.get('from') === 'coordinator';
+  const backUrl = fromCoordinator ? '/dashboard/coordinator' : '/dashboard/users/new/select-type';
+  
+  const trpcAny = trpc as any;
+
+  const careersQuery = trpcAny.academic.careers.list.useQuery();
+  const careers = (careersQuery.data ?? []) as Career[];
+
+  const [selectedCareerDisplay, setSelectedCareerDisplay] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -108,6 +118,24 @@ export default function NewTeacherPage() {
     // Estado
     activo: true,
   });
+
+  useEffect(() => {
+    if (!careersQuery.data) return;
+
+    // Si ya hay carrera seleccionada por id, sincronizar label
+    if (formData.carreraId) {
+      const found = careers.find((c) => c.id.toString() === formData.carreraId);
+      setSelectedCareerDisplay(found?.nombre ?? formData.carreraId);
+      return;
+    }
+
+    // Caso: BD con 1 sola carrera -> autoseleccionar
+    if (careers.length === 1) {
+      const only = careers[0];
+      setFormData((prev) => ({ ...prev, carreraId: only.id.toString() }));
+      setSelectedCareerDisplay(only.nombre);
+    }
+  }, [careersQuery.data, careers, formData.carreraId]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -287,7 +315,7 @@ export default function NewTeacherPage() {
               <p className="font-medium text-blue-800 dark:text-blue-200">Datos generados:</p>
               <p>• Email Institucional: <strong>{generatedEmail}</strong></p>
               <p>• Roles: {selectedRoles.join(' y ')}</p>
-              <p>• Carrera: {careers.find(c => c.id.toString() === formData.carreraId)?.name}</p>
+              <p>• Carrera: {careers.find(c => c.id.toString() === formData.carreraId)?.nombre ?? '—'}</p>
               {formData.especialidad && <p>• Especialidad: {formData.especialidad}</p>}
             </div>
             <p className="text-xs text-muted-foreground">Se han enviado las credenciales al email de recuperación.</p>
@@ -307,7 +335,6 @@ export default function NewTeacherPage() {
     }
   };
 
-  const selectedCareer = careers.find(c => c.id.toString() === formData.carreraId);
 
   return (
     <motion.div
@@ -319,7 +346,7 @@ export default function NewTeacherPage() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center gap-4">
         <Button asChild variant="outline" size="sm" className="border-border">
-          <Link href="/dashboard/users/new/select-type">
+          <Link href={backUrl}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver
           </Link>
@@ -448,16 +475,25 @@ export default function NewTeacherPage() {
           {/* Carrera */}
           <div className="space-y-2">
             <Label htmlFor="carreraId" className="text-foreground">Carrera <span className="text-red-500">*</span></Label>
-            <Select value={formData.carreraId} onValueChange={(value: string) => handleFieldChange('carreraId', value)}>
+            <Select
+              value={selectedCareerDisplay}
+              onValueChange={(careerIdStr: string) => {
+                handleFieldChange('carreraId', careerIdStr);
+                const found = careers.find((c) => c.id.toString() === careerIdStr);
+                setSelectedCareerDisplay(found?.nombre ?? careerIdStr);
+              }}
+            >
               <SelectTrigger className={`bg-background ${errors.carreraId && touched.carreraId ? 'border-red-500' : 'border-input'}`}>
                 <SelectValue placeholder="Selecciona una carrera" />
               </SelectTrigger>
               <SelectContent>
-                {careers.map((career) => (
-                  <SelectItem key={career.id} value={career.id.toString()}>
-                    {career.name}
-                  </SelectItem>
-                ))}
+                {careersQuery.isLoading
+                  ? null
+                  : careers.map((career) => (
+                      <SelectItem key={career.id} value={career.id.toString()}>
+                        {career.nombre} ({career.codigo})
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
             {errors.carreraId && touched.carreraId && <p className="text-sm text-red-500">{errors.carreraId}</p>}
@@ -579,13 +615,16 @@ export default function NewTeacherPage() {
                   id="rol-coordinador"
                   checked={formData.roles.coordinador}
                   onCheckedChange={(checked: boolean) => handleRoleChange('coordinador', checked)}
+                  disabled={fromCoordinator}
                 />
                 <div className="flex-1">
-                  <Label htmlFor="rol-coordinador" className="text-foreground font-medium cursor-pointer">
+                  <Label htmlFor="rol-coordinador" className={`text-foreground font-medium cursor-pointer ${fromCoordinator ? 'opacity-50' : ''}`}>
                     COORDINADOR
                   </Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Podrá gestionar estudiantes, aprobar registros y generar reportes de su facultad
+                  <p className={`text-sm mt-1 ${fromCoordinator ? 'text-muted-foreground opacity-50' : 'text-muted-foreground'}`}>
+                    {fromCoordinator 
+                      ? 'Solo administradores pueden crear otros coordinadores' 
+                      : 'Podrá gestionar estudiantes, aprobar registros y generar reportes de su facultad'}
                   </p>
                 </div>
               </div>

@@ -36,6 +36,12 @@ export default function NewCompanyPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Nueva Empresa</h1>
         <p className="text-muted-foreground text-sm mt-1">Registra una nueva empresa en el sistema</p>
+        <p className="text-muted-foreground text-xs mt-2">
+          ¿Necesitas validar o generar un RUC?{' '}
+          <a href="/dashboard/companies/ruc-tool" className="text-blue-500 hover:underline">
+            Usa la herramienta de RUC
+          </a>
+        </p>
       </div>
       <CompanyForm
         title="Información de la Empresa"

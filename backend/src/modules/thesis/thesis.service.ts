@@ -247,14 +247,21 @@ export class ThesisService {
     const submission = this.submissionRepo.create({ ...dto, estudianteId, estado: EntregaEstado.ENTREGADO });
     const saved = await this.submissionRepo.save(submission);
     // Notificar a asesores y jurados
-    const assignments = await this.assignmentRepo.find({ where: { proyectoId: project.id, tipo: AsignacionTipo.ASESOR } });
+    const assignments = await this.assignmentRepo.find({
+      where: { proyectoId: project.id, tipo: AsignacionTipo.ASESOR },
+      relations: ['docente']
+    });
     for (const ass of assignments) {
-      await this.notificationsService.create({
-        usuarioId: ass.docenteId,
-        titulo: 'Nueva entrega de tesis',
-        mensaje: `El estudiante ha entregado "${deliverable.nombre}"`,
-        tipo: NotificacionTipo.INFO,
-      });
+      // Obtener el usuarioId del docente para enviar notificación correcta
+      const teacher = await this.teacherRepo.findOne({ where: { id: ass.docenteId } });
+      if (teacher?.usuarioId) {
+        await this.notificationsService.create({
+          usuarioId: teacher.usuarioId,
+          titulo: 'Nueva entrega de tesis',
+          mensaje: `El estudiante ha entregado "${deliverable.nombre}"`,
+          tipo: NotificacionTipo.INFO,
+        });
+      }
     }
     return saved;
   }
@@ -370,7 +377,18 @@ export class ThesisService {
     // Notificar al coordinador de la facultad del estudiante
     try {
       const student = await this.studentsService.findById(project.estudianteId);
-      const studentName = student?.usuario?.nombre + ' ' + (student?.usuario?.apellidoPaterno || '');
+      if (!student) {
+        console.warn(`Estudiante ${project.estudianteId} no encontrado para notificación`);
+        return updated;
+      }
+      
+      const studentName = `${student.usuario?.nombre || ''} ${student.usuario?.apellidoPaterno || ''}`.trim();
+      const facultadId = student.carrera?.facultadId;
+      
+      if (!facultadId) {
+        console.warn(`No se encontró facultad para el estudiante ${project.estudianteId}`);
+        return updated;
+      }
 
       // Buscar coordinadores de la facultad del estudiante
       const coordinadores = await this.userRepo.query(
@@ -380,8 +398,12 @@ export class ThesisService {
          INNER JOIN docente d ON d.usuario_id = u.id
          INNER JOIN carrera c ON c.id = d.carrera_id
          WHERE r.nombre = 'Coordinador' AND c.facultad_id = $1`,
-        [student?.carrera?.facultadId]
+        [facultadId]
       );
+
+      if (coordinadores.length === 0) {
+        console.warn(`No se encontraron coordinadores para la facultad ${facultadId}`);
+      }
 
       for (const coord of coordinadores) {
         await this.notificationsService.create({

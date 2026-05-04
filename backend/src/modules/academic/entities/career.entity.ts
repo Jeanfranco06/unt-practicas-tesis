@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
-// import { Faculty } from './faculty.entity';
+import { Faculty } from './faculty.entity';
 import { Student } from '../../students/entities/student.entity';
-// import { Teacher } from './teacher.entity';
 
 @Entity('carrera')
 export class Career {
@@ -11,9 +10,9 @@ export class Career {
   @Column({ name: 'facultad_id' })
   facultadId: number;
 
-  // @ManyToOne(() => Faculty, (faculty: any) => faculty.carreras)
-  // @JoinColumn({ name: 'facultad_id' })
-  facultad: any;
+  @ManyToOne(() => Faculty, (faculty) => faculty.carreras)
+  @JoinColumn({ name: 'facultad_id' })
+  facultad: Faculty;
 
   @Column({ length: 200 })
   nombre: string;

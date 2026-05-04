@@ -17,6 +17,7 @@ import { CreateInternshipOfferDto, UpdateInternshipOfferDto } from './dto/intern
 import { CreateApplicationDto, ReviewApplicationDto } from './dto/application.dto';
 import { CreateHoursTrackingDto } from './dto/hours-tracking.dto';
 import { CreateInternshipReportDto } from './dto/internship-report.dto';
+import { RoleName } from '../users/entities/role.entity';
 
 @Injectable()
 export class InternshipsService {
@@ -108,8 +109,16 @@ export class InternshipsService {
     return this.findOfferById(id);
   }
 
-  async deleteOffer(id: number): Promise<{ success: boolean; message: string }> {
+  async deleteOffer(id: number, jwtUser?: { roles?: string[]; rol?: string }): Promise<{ success: boolean; message: string }> {
     const offer = await this.findOfferById(id);
+
+    const isCoordinator =
+      jwtUser?.roles?.includes(RoleName.COORDINADOR) || jwtUser?.rol === RoleName.COORDINADOR;
+    if (isCoordinator && offer.estado !== OfertaEstado.BORRADOR) {
+      throw new BadRequestException(
+        'Como coordinador solo puede rechazar ofertas pendientes de aprobación (borrador).',
+      );
+    }
 
     // Verificar si hay aplicaciones aprobadas para esta oferta específica
     const activeApplications = await this.appRepo.find({
@@ -185,6 +194,10 @@ export class InternshipsService {
 
   // Postulaciones
   async apply(dto: CreateApplicationDto): Promise<InternshipApplication> {
+    if (!dto.estudianteId) {
+      throw new BadRequestException('estudianteId es requerido');
+    }
+    
     const offer = await this.findOfferById(dto.ofertaId);
     if (offer.estado !== OfertaEstado.PUBLICADA) throw new BadRequestException('La oferta no está disponible');
     const now = new Date();
@@ -211,7 +224,22 @@ export class InternshipsService {
       throw new BadRequestException('No puedes postular porque ya tienes una práctica activa, pendiente o en evaluación');
     }
 
-    const application = this.appRepo.create(dto);
+    // Handle CV file upload
+    let cvUrl = dto.documentoCvUrl;
+    if (dto.cvFile) {
+      // If file was uploaded, create URL path to the uploaded file
+      // Note: static files are served at /uploads, but files are stored in upload/
+      cvUrl = `/uploads/cv/${dto.cvFile.filename}`;
+    }
+
+    const application = this.appRepo.create({
+      ...dto,
+      documentoCvUrl: cvUrl,
+    });
+    
+    // Remove cvFile from the entity as it's not a database field
+    delete (application as any).cvFile;
+    
     const saved = await this.appRepo.save(application);
 
     // Notificar al representante de la empresa sobre la nueva postulación
@@ -310,13 +338,20 @@ export class InternshipsService {
       const existingInternship = await this.internshipRepo.findOneBy({ postulacionId: app.id });
       if (!existingInternship) {
         const offer = app.oferta;
+        
+        // ✅ Validar que la empresa esté activa antes de crear la práctica
+        const empresa = await this.companiesService.findById(offer.empresaId);
+        if (!empresa.activo) {
+          throw new BadRequestException('No se puede aprobar la postulación porque la empresa no está activa');
+        }
+        
         const internship = this.internshipRepo.create({
           postulacionId: app.id,
           estudianteId: app.estudianteId,
           empresaId: offer.empresaId,
-          asesorEmpresaNombre: '',
+          asesorEmpresaNombre: 'Por asignar',  // ✅ Valor descriptivo en lugar de vacío
           origen: PracticaOrigen.INSTITUCIONAL,
-          horasTotalesRequeridas: offer.horasTotalesRequeridas || 400,  // ✅ Usar valor de oferta o default 400
+          horasTotalesRequeridas: offer.horasTotalesRequeridas || 400,
           horasCompletadas: 0,
           fechaInicio: offer.fechaInicioPractica,
           fechaFin: offer.fechaFinPractica,

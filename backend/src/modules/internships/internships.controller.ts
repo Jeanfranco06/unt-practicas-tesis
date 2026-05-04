@@ -1,4 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Delete, Param, Query, UseGuards, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param, Query, UseGuards, NotFoundException, ForbiddenException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import { Request } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InternshipsService } from './internships.service';
@@ -15,6 +19,20 @@ import { RolUsuario, User } from '../users/entities/user.entity';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OfertaEstado } from './entities/internship-offer.entity';
 import { ApplicationEstado } from './entities/internship-application.entity';
+
+// Configuración de almacenamiento en disco para Multer - CV files
+const cvMulterStorage = diskStorage({
+  destination: path.join(process.cwd(), 'upload', 'cv'),
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const sanitizedName = file.originalname
+      .replace(/\s+/g, '_')
+      .replace(/[()]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '')
+      .toLowerCase();
+    cb(null, `${uniqueSuffix}_${sanitizedName}`);
+  },
+});
 
 @Controller('internships')
 @UseGuards(AuthGuard, RolesGuard)
@@ -81,26 +99,37 @@ export class InternshipsController {
   }
 
   @Patch('offers/:id/publish')
-  @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA)
+  @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA, RolUsuario.COORDINADOR)
   publishOffer(@Param('id') id: string) {
     return this.service.publishOffer(+id);
   }
 
   @Delete('offers/:id')
-  @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA)
-  deleteOffer(@Param('id') id: string) {
-    return this.service.deleteOffer(+id);
+  @Roles(RolUsuario.ADMIN, RolUsuario.REPRESENTANTE_EMPRESA, RolUsuario.COORDINADOR)
+  deleteOffer(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.deleteOffer(+id, user);
   }
 
   // Postulaciones
   @Post('applications')
   @Roles(RolUsuario.ESTUDIANTE)
-  async apply(@Body() dto: CreateApplicationDto, @CurrentUser() user: any) {
+  @UseInterceptors(FileInterceptor('cvFile', { storage: cvMulterStorage }))
+  async apply(
+    @Body() dto: CreateApplicationDto,
+    @UploadedFile() cvFile: any,
+    @CurrentUser() user: any
+  ) {
     const student = await this.studentsService.findByUsuarioId(user.sub);
     if (!student) {
       throw new NotFoundException('Estudiante no encontrado');
     }
     dto.estudianteId = student.id;
+    
+    // Si hay archivo CV, usar el path del archivo subido
+    if (cvFile) {
+      dto.cvFile = cvFile;
+    }
+    
     return this.service.apply(dto);
   }
 
@@ -261,7 +290,7 @@ export class InternshipsController {
       return undefined;
     }
 
-    // Obtener el docente asociado al usuario y su facultad
+    // Para coordinadores, obtener el docente asociado al usuario y su facultad
     const result = await this.userRepo.query(
       `SELECT c.facultad_id 
        FROM docente d 
@@ -271,7 +300,9 @@ export class InternshipsController {
       [userId]
     );
     if (!result || result.length === 0) {
-      throw new ForbiddenException('No se encontró la facultad asociada al coordinador');
+      // Si no se encuentra perfil de docente, permitir acceso sin filtro de facultad
+      // Esto puede ocurrir si el coordinador no tiene perfil de docente configurado
+      return undefined;
     }
     return result[0].facultad_id;
   }

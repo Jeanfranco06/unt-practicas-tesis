@@ -373,7 +373,141 @@ export class ReportsController {
     return this.reportsService.getFacultyStats(facultadId, filters);
   }
 
-  private async getFacultadIdFromCoordinator(userId: number): Promise<number> {
+  // ==================== PDF ENDPOINTS FOR FACULTY REPORTS ====================
+
+  @Get('faculty/pdf/internships')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyInternshipsPDF(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+    @Res() res: Response,
+  ) {
+    try {
+      const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+      const data = await this.reportsService.getFacultyInternships(facultadId, filters);
+      const html = this.reportsService.renderFacultyTemplate('internships', { ...data, facultadId });
+      const pdf = await this.reportsService.generatePDF(html);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_practicas_facultad.pdf');
+      res.send(pdf);
+    } catch (error) {
+      console.error('Error generating faculty internships PDF:', error);
+      res.status(500).json({ message: 'Error al generar PDF de prácticas' });
+    }
+  }
+
+  @Get('faculty/pdf/thesis')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyThesisPDF(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+    @Res() res: Response,
+  ) {
+    try {
+      const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+      const data = await this.reportsService.getFacultyThesis(facultadId, filters);
+      const html = this.reportsService.renderFacultyTemplate('thesis', { ...data, facultadId });
+      const pdf = await this.reportsService.generatePDF(html);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_tesis_facultad.pdf');
+      res.send(pdf);
+    } catch (error) {
+      console.error('Error generating faculty thesis PDF:', error);
+      res.status(500).json({ message: 'Error al generar PDF de tesis' });
+    }
+  }
+
+  @Get('faculty/pdf/students')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyStudentsPDF(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+    @Res() res: Response,
+  ) {
+    try {
+      const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+      const data = await this.reportsService.getFacultyStudents(facultadId, filters);
+      const html = this.reportsService.renderFacultyTemplate('students', { ...data, facultadId });
+      const pdf = await this.reportsService.generatePDF(html);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_estudiantes_facultad.pdf');
+      res.send(pdf);
+    } catch (error) {
+      console.error('Error generating faculty students PDF:', error);
+      res.status(500).json({ message: 'Error al generar PDF de estudiantes' });
+    }
+  }
+
+  @Get('faculty/pdf/advisors')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyAdvisorsPDF(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+    @Res() res: Response,
+  ) {
+    try {
+      const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+      const data = await this.reportsService.getFacultyAdvisors(facultadId, filters);
+      const html = this.reportsService.renderFacultyTemplate('advisors', { ...data, facultadId });
+      const pdf = await this.reportsService.generatePDF(html);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_asesores_facultad.pdf');
+      res.send(pdf);
+    } catch (error) {
+      console.error('Error generating faculty advisors PDF:', error);
+      res.status(500).json({ message: 'Error al generar PDF de asesores' });
+    }
+  }
+
+  @Get('faculty/pdf/agreements')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyAgreementsPDF(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+    @Res() res: Response,
+  ) {
+    try {
+      const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+      const data = await this.reportsService.getFacultyAgreements(facultadId, filters);
+      const html = this.reportsService.renderFacultyTemplate('agreements', { ...data, facultadId });
+      const pdf = await this.reportsService.generatePDF(html);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_convenios_facultad.pdf');
+      res.send(pdf);
+    } catch (error) {
+      console.error('Error generating faculty agreements PDF:', error);
+      res.status(500).json({ message: 'Error al generar PDF de convenios' });
+    }
+  }
+
+  @Get('faculty/pdf/stats')
+  @Roles(RolUsuario.COORDINADOR, RolUsuario.ADMIN)
+  async getFacultyStatsPDF(
+    @CurrentUser() user: any,
+    @Query() filters: ReportFilters,
+    @Res() res: Response,
+  ) {
+    try {
+      const facultadId = await this.getFacultadIdFromCoordinator(user.sub);
+      const data = await this.reportsService.getFacultyStats(facultadId, filters);
+      const html = this.reportsService.renderFacultyTemplate('stats', { ...data, facultadId });
+      const pdf = await this.reportsService.generatePDF(html);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_estadisticas_facultad.pdf');
+      res.send(pdf);
+    } catch (error) {
+      console.error('Error generating faculty stats PDF:', error);
+      res.status(500).json({ message: 'Error al generar PDF de estadísticas' });
+    }
+  }
+
+  private async getFacultadIdFromCoordinator(userId: number): Promise<number | undefined> {
     // Obtener el docente asociado al usuario y su facultad
     const result = await this.userRepo.query(
       `SELECT c.facultad_id 
@@ -384,7 +518,9 @@ export class ReportsController {
       [userId]
     );
     if (!result || result.length === 0) {
-      throw new ForbiddenException('No se encontró la facultad asociada al coordinador');
+      // Si no se encuentra perfil de docente, permitir acceso sin filtro de facultad
+      // Esto puede ocurrir si el coordinador no tiene perfil de docente configurado
+      return undefined;
     }
     return result[0].facultad_id;
   }

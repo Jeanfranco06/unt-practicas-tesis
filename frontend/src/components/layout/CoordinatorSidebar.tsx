@@ -8,36 +8,34 @@ import {
   LayoutDashboard,
   Briefcase,
   BookOpen,
-  Users,
   Building2,
-  FileText,
   LogOut,
   GraduationCap,
   CheckCircle,
   UserCheck,
-  ClipboardList,
   TrendingUp,
   X,
   Settings,
-  UserCog,
-  UserCircle,
   Bell,
+  BadgeCheck,
+  ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useSidebar } from '@/components/layout/SidebarContext';
 
-// Navegación específica para Coordinador - enfocada en gestión de facultad
+// Coordinador: aprobaciones, asignaciones, convenios, seguimiento y reportes (sin alta de usuarios ni listados tipo administrador)
+const MAIN_NAV_COUNT = 5;
+
 const navItems = [
   { href: '/dashboard/coordinator', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/coordinator/applications', label: 'Aprobar Postulaciones', icon: CheckCircle, badge: 'pendientes' },
-  { href: '/dashboard/coordinator/assignments', label: 'Asignar Asesores/Jurados', icon: UserCheck },
-  { href: '/dashboard/coordinator/agreements', label: 'Gestionar Convenios', icon: ClipboardList },
+  { href: '/dashboard/coordinator/applications', label: 'Aprobar Postulaciones', icon: CheckCircle },
+  { href: '/dashboard/coordinator/offers', label: 'Aprobar Ofertas de Práctica', icon: BadgeCheck },
+  { href: '/dashboard/coordinator/assignments', label: 'Asignar Asesores y Jurados', icon: UserCheck },
+  { href: '/dashboard/coordinator/agreements', label: 'Gestionar Convenios', icon: ScrollText },
   { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
   { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-  { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
-  { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
   { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
   { href: '/dashboard/coordinator/reports', label: 'Reportes de Facultad', icon: TrendingUp },
 ];
@@ -133,10 +131,10 @@ export function CoordinatorSidebar() {
           <div className="mb-2">
             {!collapsed && (
               <p className="px-3 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider mb-2">
-                Gestión Principal
+                Gestión de la facultad
               </p>
             )}
-            {navItems.slice(0, 4).map((item) => {
+            {navItems.slice(0, MAIN_NAV_COUNT).map((item) => {
               const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
               const Icon = item.icon;
 
@@ -193,10 +191,10 @@ export function CoordinatorSidebar() {
           <div className="pt-4 border-t border-sidebar-border/50">
             {!collapsed && (
               <p className="px-3 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider mb-2">
-                Consulta y Reportes
+                Seguimiento y reportes
               </p>
             )}
-            {navItems.slice(4).map((item) => {
+            {navItems.slice(MAIN_NAV_COUNT).map((item) => {
               const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
               const Icon = item.icon;
 

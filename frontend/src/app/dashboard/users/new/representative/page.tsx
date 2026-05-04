@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { useRouter } from 'next/navigation';
+import { API_URL, fetchWithAuth } from '@/app/dashboard/companies/_lib/companies';
 
 function generate10CharUsername(nombre: string, apellidoPaterno: string, apellidoMaterno?: string, extraData?: string): string {
   const normalize = (str: string) => str
@@ -60,7 +61,7 @@ interface Company {
   id: number;
   ruc: string;
   razonSocial: string;
-  nombreComercial: string;
+  nombreComercial: string | null;
 }
 
 const departments = [
@@ -83,41 +84,17 @@ export default function NewRepresentativePage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
 
-  // Cargar empresas disponibles (sin representante) al montar el componente
+  // Misma fuente que /dashboard/companies: empresas activas (puede haber más de un representante por empresa)
   useEffect(() => {
     let isMounted = true;
-    const abortController = new AbortController();
 
     const fetchCompanies = async () => {
       try {
         setIsLoadingCompanies(true);
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-          console.warn('No access token found');
-          setIsLoadingCompanies(false);
-          return;
-        }
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/available/representative`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          signal: abortController.signal,
-        });
-
+        const data = await fetchWithAuth(`${API_URL}/api/companies`);
         if (!isMounted) return;
-
-        if (response.ok) {
-          const data = await response.json();
-          setCompanies(data);
-        } else {
-          console.error('Failed to fetch companies:', response.status);
-        }
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.log('Fetch aborted');
-          return;
-        }
+        setCompanies(Array.isArray(data) ? data : []);
+      } catch (error: unknown) {
         console.error('Error fetching companies:', error);
       } finally {
         if (isMounted) {
@@ -130,9 +107,8 @@ export default function NewRepresentativePage() {
 
     return () => {
       isMounted = false;
-      abortController.abort();
     };
-  }, []); // Solo ejecutar al montar el componente
+  }, []);
   const [formData, setFormData] = useState({
     // Datos personales
     emailRecuperacion: '',  // Email personal para recuperación (obligatorio)
@@ -154,11 +130,15 @@ export default function NewRepresentativePage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const filteredCompanies = companies.filter(company =>
-    company.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.ruc.includes(searchTerm) ||
-    company.nombreComercial.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCompanies = companies.filter((company) => {
+    const q = searchTerm.toLowerCase();
+    const nc = (company.nombreComercial ?? '').toLowerCase();
+    return (
+      company.razonSocial.toLowerCase().includes(q) ||
+      company.ruc.includes(searchTerm) ||
+      nc.includes(q)
+    );
+  });
 
   const selectedCompany = companies.find(c => c.id.toString() === formData.empresaId);
 
@@ -339,7 +319,7 @@ export default function NewRepresentativePage() {
               <div className="text-center py-4 text-muted-foreground text-sm">
                 {companies.length === 0 ? (
                   <>
-                    No hay empresas disponibles. Todas las empresas ya tienen un representante asignado.
+                    No hay empresas activas registradas. Crea una empresa primero.
                     <Link
                       href="/dashboard/companies/new"
                       target="_blank"
@@ -366,7 +346,7 @@ export default function NewRepresentativePage() {
                   <div className="flex-1">
                     <p className="font-medium text-foreground text-sm">{company.razonSocial}</p>
                     <p className="text-xs text-muted-foreground">
-                      RUC: {company.ruc} • {company.nombreComercial}
+                      RUC: {company.ruc} • {company.nombreComercial ?? 'Sin nombre comercial'}
                     </p>
                   </div>
                 </div>
@@ -406,7 +386,7 @@ export default function NewRepresentativePage() {
                   <div className="text-sm text-green-700 dark:text-green-300 mt-1">
                     <p>• <strong>{selectedCompany.razonSocial}</strong></p>
                     <p>• RUC: {selectedCompany.ruc}</p>
-                    <p>• Nombre Comercial: {selectedCompany.nombreComercial}</p>
+                    <p>• Nombre Comercial: {selectedCompany.nombreComercial ?? '—'}</p>
                   </div>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Mail, GraduationCap, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
@@ -65,6 +66,10 @@ function generate10CharUsername(nombre: string, apellidoPaterno: string, apellid
 export default function NewStudentPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromCoordinator = searchParams.get('from') === 'coordinator';
+  const backUrl = fromCoordinator ? '/dashboard/coordinator' : '/dashboard/users/new/select-type';
+  
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [careers, setCareers] = useState<Career[]>([]);
@@ -269,7 +274,7 @@ export default function NewStudentPage() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center gap-4">
         <Button asChild variant="outline" size="sm" className="border-border">
-          <Link href="/dashboard/users/new/select-type">
+          <Link href={backUrl}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver
           </Link>

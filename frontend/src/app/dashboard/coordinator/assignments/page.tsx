@@ -37,7 +37,7 @@ interface Internship {
   fechaFin?: string;
   estudiante: {
     id: number;
-    codigo: string;
+    codigoUniversitario: string;
     usuario: {
       nombre: string;
       apellidoPaterno: string;

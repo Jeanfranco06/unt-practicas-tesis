@@ -147,7 +147,7 @@ export class ThesisController {
       return undefined;
     }
 
-    // Obtener el docente asociado al usuario y su facultad
+    // Para coordinadores, obtener el docente asociado al usuario y su facultad
     const result = await this.userRepo.query(
       `SELECT c.facultad_id 
        FROM docente d 
@@ -157,7 +157,9 @@ export class ThesisController {
       [userId]
     );
     if (!result || result.length === 0) {
-      throw new ForbiddenException('No se encontró la facultad asociada al coordinador');
+      // Si no se encuentra perfil de docente, permitir acceso sin filtro de facultad
+      // Esto puede ocurrir si el coordinador no tiene perfil de docente configurado
+      return undefined;
     }
     return result[0].facultad_id;
   }

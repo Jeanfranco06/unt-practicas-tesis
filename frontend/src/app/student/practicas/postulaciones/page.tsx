@@ -216,7 +216,7 @@ export default function PostulacionesPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => router.push('/student/practicas/1')}
+                            onClick={() => router.push(`/student/practicas/app-${app.id}`)}
                           >
                             <Eye className="w-4 h-4 mr-2" />
                             Ver mi práctica

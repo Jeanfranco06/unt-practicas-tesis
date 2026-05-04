@@ -41,6 +41,7 @@ interface Application {
   estado: string;
   fechaPostulacion: string;
   cartaPresentacion?: string;
+  documentoCvUrl?: string;
   oferta: {
     id: number;
     titulo: string;
@@ -50,7 +51,7 @@ interface Application {
   };
   estudiante: {
     id: number;
-    codigo: string;
+    codigoUniversitario: string;
     usuario: {
       nombre: string;
       apellidoPaterno: string;
@@ -120,7 +121,7 @@ export default function ApplicationsPage() {
       studentName.includes(searchLower) ||
       app.oferta?.titulo?.toLowerCase().includes(searchLower) ||
       app.oferta?.empresa?.razonSocial?.toLowerCase().includes(searchLower) ||
-      app.estudiante?.codigo?.toLowerCase().includes(searchLower)
+      app.estudiante?.codigoUniversitario?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -214,7 +215,7 @@ export default function ApplicationsPage() {
                             : 'Estudiante no disponible'}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          Código: {app.estudiante?.codigo || 'N/A'}
+                          Código: {app.estudiante?.codigoUniversitario || 'N/A'}
                         </p>
                         <div className="flex flex-wrap items-center gap-3 mt-2">
                           <span className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -268,6 +269,34 @@ export default function ApplicationsPage() {
                             <p className="text-sm text-muted-foreground bg-background p-4 rounded-lg">
                               {app.cartaPresentacion}
                             </p>
+                          </div>
+                        )}
+
+                        {app.documentoCvUrl && (
+                          <div>
+                            <h4 className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
+                              <FileText className="w-4 h-4" />
+                              CV del Estudiante
+                            </h4>
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-2"
+                            >
+                              <a
+                                href={app.documentoCvUrl.startsWith('http') 
+                                  ? app.documentoCvUrl 
+                                  : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${app.documentoCvUrl}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                                Descargar CV
+                              </a>
+                            </Button>
                           </div>
                         )}
 

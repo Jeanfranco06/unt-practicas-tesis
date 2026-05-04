@@ -97,6 +97,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard/coordinator', request.url));
   }
 
+  // Protect /dashboard/users route - only Admin can access
+  if (pathname.startsWith('/dashboard/users') && token && hasRole(userRoles, 'Coordinador') && !hasRole(userRoles, 'Administrador')) {
+    return NextResponse.redirect(new URL('/dashboard/coordinator', request.url));
+  }
+
   // Redirect advisors accessing general dashboard to advisor dashboard
   if (pathname === '/dashboard' && token && hasRole(userRoles, 'Asesor') && !hasRole(userRoles, 'Administrador') && !hasRole(userRoles, 'Coordinador')) {
     return NextResponse.redirect(new URL('/dashboard/advisor', request.url));

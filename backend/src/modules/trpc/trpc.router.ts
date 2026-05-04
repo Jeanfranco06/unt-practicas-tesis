@@ -9,6 +9,8 @@ import { CompaniesService } from '../companies/companies.service';
 import { StudentsService } from '../students/students.service';
 import { UsersService } from '../users/users.service';
 import { ReportsService } from '../reports/reports.service';
+import { FacultyService } from '../academic/services/faculty.service';
+import { CareerService } from '../academic/services/career.service';
 import { Teacher } from '../academic/entities/teacher.entity';
 import { z } from 'zod';
 import { DashboardRouter } from '../dashboard/dashboard.router';
@@ -26,6 +28,8 @@ export class TrpcRouter {
     private studentsService: StudentsService,
     private usersService: UsersService,
     private reportsService: ReportsService,
+    private facultyService: FacultyService,
+    private careerService: CareerService,
     private dashboardRouter: DashboardRouter,
     private notificationsRouter: NotificationsRouter,
     @InjectRepository(Teacher)
@@ -142,6 +146,82 @@ export class TrpcRouter {
     reports: this.trpc.router({
       getInternshipData: this.trpc.protectedProcedure.query(async () => this.reportsService.collectInternshipData({})),
       getThesisData: this.trpc.protectedProcedure.query(async () => this.reportsService.collectThesisData({})),
+    }),
+    academic: this.trpc.router({
+      faculties: this.trpc.router({
+        list: this.trpc.procedure.query(async () => this.facultyService.findAll()),
+        getById: this.trpc.procedure
+          .input(z.object({ id: z.number() }))
+          .query(async ({ input }) => this.facultyService.findById(input.id)),
+        getByCode: this.trpc.procedure
+          .input(z.object({ codigo: z.string() }))
+          .query(async ({ input }) => this.facultyService.findByCode(input.codigo)),
+        create: this.trpc.protectedProcedure
+          .input(z.object({
+            nombre: z.string().max(200),
+            codigo: z.string().max(10),
+            descripcion: z.string().max(1000).optional(),
+            activo: z.boolean().optional(),
+          }))
+          .mutation(async ({ input }) => this.facultyService.create(input)),
+        update: this.trpc.protectedProcedure
+          .input(z.object({
+            id: z.number(),
+            data: z.object({
+              nombre: z.string().max(200).optional(),
+              codigo: z.string().max(10).optional(),
+              descripcion: z.string().max(1000).optional(),
+              activo: z.boolean().optional(),
+            }),
+          }))
+          .mutation(async ({ input }) => this.facultyService.update(input.id, input.data)),
+        deactivate: this.trpc.protectedProcedure
+          .input(z.object({ id: z.number() }))
+          .mutation(async ({ input }) => {
+            await this.facultyService.deactivate(input.id);
+            return { success: true };
+          }),
+      }),
+      careers: this.trpc.router({
+        list: this.trpc.procedure.query(async () => this.careerService.findAll()),
+        getById: this.trpc.procedure
+          .input(z.object({ id: z.number() }))
+          .query(async ({ input }) => this.careerService.findById(input.id)),
+        getByCode: this.trpc.procedure
+          .input(z.object({ codigo: z.string() }))
+          .query(async ({ input }) => this.careerService.findByCode(input.codigo)),
+        getByFaculty: this.trpc.procedure
+          .input(z.object({ facultyId: z.number() }))
+          .query(async ({ input }) => this.careerService.findByFaculty(input.facultyId)),
+        getFirst: this.trpc.procedure.query(async () => this.careerService.findFirst()),
+        create: this.trpc.protectedProcedure
+          .input(z.object({
+            facultadId: z.number(),
+            nombre: z.string().max(200),
+            codigo: z.string().max(10),
+            descripcion: z.string().max(1000).optional(),
+            activo: z.boolean().optional(),
+          }))
+          .mutation(async ({ input }) => this.careerService.create(input)),
+        update: this.trpc.protectedProcedure
+          .input(z.object({
+            id: z.number(),
+            data: z.object({
+              facultadId: z.number().optional(),
+              nombre: z.string().max(200).optional(),
+              codigo: z.string().max(10).optional(),
+              descripcion: z.string().max(1000).optional(),
+              activo: z.boolean().optional(),
+            }),
+          }))
+          .mutation(async ({ input }) => this.careerService.update(input.id, input.data)),
+        deactivate: this.trpc.protectedProcedure
+          .input(z.object({ id: z.number() }))
+          .mutation(async ({ input }) => {
+            await this.careerService.deactivate(input.id);
+            return { success: true };
+          }),
+      }),
     }),
     notifications: this.notificationsRouter.router,
     dashboard: this.dashboardRouter.router,

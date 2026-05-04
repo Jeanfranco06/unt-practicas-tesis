@@ -179,3 +179,24 @@ export async function deleteAgreement(id: number) {
 export async function getCompanies() {
   return fetchWithAuth(`${API_URL}/api/companies`);
 }
+
+// Ofertas de práctica (aprobación por coordinador: publicar o rechazar borradores)
+export async function getDraftOffers() {
+  const res = await fetchWithAuth(`${API_URL}/api/internships/offers?estado=borrador&limit=500`);
+  return Array.isArray(res) ? res : (res?.data ?? []);
+}
+
+export async function getDraftOffersCount() {
+  const res = await fetchWithAuth(`${API_URL}/api/internships/offers?estado=borrador&limit=1`);
+  if (res && typeof res.total === 'number') return res.total;
+  const data = Array.isArray(res) ? res : (res?.data ?? []);
+  return data.length;
+}
+
+export async function publishInternshipOffer(id: number) {
+  return fetchWithAuth(`${API_URL}/api/internships/offers/${id}/publish`, { method: 'PATCH' });
+}
+
+export async function rejectInternshipOffer(id: number) {
+  return fetchWithAuth(`${API_URL}/api/internships/offers/${id}`, { method: 'DELETE' });
+}

@@ -66,7 +66,7 @@ interface ApplicationWithDetails {
   };
   estudiante?: {
     id: number;
-    codigoEstudiante: string;
+    codigoUniversitario: string;
     usuario: {
       nombre: string;
       apellidoPaterno: string;
@@ -358,7 +358,7 @@ export default function CompanyApplicationsPage() {
                       </span>
                       <span className="px-2.5 py-1.5 bg-muted text-muted-foreground rounded-lg flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5" />
-                        Código: {app.estudiante?.codigoEstudiante}
+                        Código: {app.estudiante?.codigoUniversitario}
                       </span>
                     </div>
                     {app.cartaPresentacion && (
@@ -532,7 +532,7 @@ export default function CompanyApplicationsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-muted rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Código Estudiante</p>
-                    <p className="font-medium text-foreground">{selectedApplication.estudiante?.codigoEstudiante}</p>
+                    <p className="font-medium text-foreground">{selectedApplication.estudiante?.codigoUniversitario}</p>
                   </div>
                   <div className="p-3 bg-muted rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Fecha de Postulación</p>

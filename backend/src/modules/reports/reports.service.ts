@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThan, MoreThan, IsNull, Not } from 'typeorm';
+import { Repository, Between, LessThan, MoreThan, IsNull, Not, In } from 'typeorm';
 import * as puppeteer from 'puppeteer';
 import * as handlebars from 'handlebars';
 import { Internship, InternshipEstado } from '../internships/entities/internship.entity';
+import { HoursTracking } from '../internships/entities/hours-tracking.entity';
 import { InternshipApplication, ApplicationEstado } from '../internships/entities/internship-application.entity';
 import { InternshipOffer, OfertaEstado } from '../internships/entities/internship-offer.entity';
 import { ThesisProject, ThesisEstado } from '../thesis/entities/thesis-project.entity';
@@ -44,6 +45,7 @@ export class ReportsService {
     @InjectRepository(Company) private companyRepo: Repository<Company>,
     @InjectRepository(Student) private studentRepo: Repository<Student>,
     @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(HoursTracking) private hoursRepo: Repository<HoursTracking>,
   ) {}
 
   // ==================== REPORTES DE OPERACIÓN (DÍA A DÍA) ====================
@@ -76,26 +78,43 @@ export class ReportsService {
       order: { fechaInicio: 'DESC' },
     });
 
-    const totalHoras = await this.internshipRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.horas_completadas)', 'total')
-      .where('p.estado = :estado', { estado: InternshipEstado.ACTIVA })
-      .getRawOne();
+    // Obtener IDs de prácticas para consultar seguimientos de horas
+    const practicaIds = practicas.map(p => p.id);
+    
+    // Calcular horas desde seguimientos (no desde el campo de BD que puede estar desactualizado)
+    const hoursTracking = practicaIds.length > 0
+      ? await this.hoursRepo.find({ where: { practicaId: In(practicaIds) } })
+      : [];
+    
+    // Calcular horas por práctica
+    const horasPorPractica = new Map<number, number>();
+    hoursTracking.forEach(h => {
+      const current = horasPorPractica.get(h.practicaId) || 0;
+      horasPorPractica.set(h.practicaId, current + h.horas);
+    });
+
+    // Calcular totales usando horas reales de seguimientos
+    const horasCalculadas = practicas.map(p => ({
+      ...p,
+      horasCompletadasReal: horasPorPractica.get(p.id) || 0,
+    }));
+
+    const totalHorasAcumuladas = horasCalculadas.reduce((sum, p) => sum + p.horasCompletadasReal, 0);
 
     return {
       total: practicas.length,
-      horasAcumuladasTotal: parseInt(totalHoras?.total || 0),
+      horasAcumuladasTotal: totalHorasAcumuladas,
       promedioHorasCompletadas: practicas.length > 0
-        ? practicas.reduce((sum, p) => sum + (p.horasCompletadas || 0), 0) / practicas.length
+        ? totalHorasAcumuladas / practicas.length
         : 0,
-      items: practicas.map(p => ({
+      items: horasCalculadas.map(p => ({
         id: p.id,
         estudiante: `${p.estudiante?.usuario?.nombre || ''} ${p.estudiante?.usuario?.apellidoPaterno || ''}`,
         codigoUniversitario: p.estudiante?.codigoUniversitario,
         empresa: p.empresa?.razonSocial || p.empresa?.nombreComercial,
-        horasCompletadas: p.horasCompletadas || 0,
+        horasCompletadas: p.horasCompletadasReal,
         horasTotalesRequeridas: p.horasTotalesRequeridas,
-        progreso: ((p.horasCompletadas || 0) / p.horasTotalesRequeridas * 100).toFixed(1),
+        progreso: ((p.horasCompletadasReal / p.horasTotalesRequeridas) * 100).toFixed(1),
         fechaInicio: p.fechaInicio,
         fechaFin: p.fechaFin,
         estado: p.estado,
@@ -663,7 +682,9 @@ export class ReportsService {
 
     // Obtener IDs únicos de docentes que son asesores o jurados
     const docenteIds = [...new Set(assignments.map(a => a.docenteId))];
-    const asesores = await this.userRepo.findByIds(docenteIds);
+    const asesores = docenteIds.length > 0
+      ? await this.userRepo.find({ where: { id: In(docenteIds) } })
+      : [];
 
     const asesoresConMetricas = asesores.map(a => {
       const asignaciones = assignments.filter(asg => asg.docenteId === a.id);
@@ -1584,13 +1605,651 @@ export class ReportsService {
     return compiled(data);
   }
 
-  private async generatePDF(html: string): Promise<Buffer> {
+  async generatePDF(html: string): Promise<Buffer> {
     const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', bottom: '20px' } });
     await browser.close();
     return Buffer.from(pdf);
+  }
+
+  renderFacultyTemplate(templateName: string, data: any): string {
+    const commonStyles = `
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: 'Times New Roman', Times, serif; 
+          padding: 25px; 
+          color: #000000; 
+          line-height: 1.6; 
+          background: #ffffff;
+          font-size: 12pt;
+        }
+        .university-header {
+          text-align: center;
+          margin-bottom: 25px;
+          border-bottom: 2px solid #000000;
+          padding-bottom: 20px;
+          background: #ffffff;
+        }
+        .logo-container {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 15px;
+        }
+        .university-logo {
+          width: 100px;
+          height: 100px;
+          object-fit: contain;
+        }
+        .university-header .logo-placeholder {
+          width: 100px;
+          height: 100px;
+          border: 2px solid #000000;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          font-size: 11pt;
+          color: #000000;
+          background: white;
+          font-weight: bold;
+        }
+        .university-header h1 {
+          font-size: 20pt;
+          font-weight: bold;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          color: #000000;
+          letter-spacing: 1px;
+        }
+        .university-header h2 {
+          font-size: 16pt;
+          font-weight: 600;
+          margin-bottom: 5px;
+          color: #333333;
+        }
+        .university-header h3 {
+          font-size: 12pt;
+          font-weight: normal;
+          margin-bottom: 5px;
+          color: #666666;
+        }
+        .report-header {
+          text-align: center;
+          margin-bottom: 30px;
+          padding: 20px;
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+        }
+        .report-header h1 {
+          font-size: 18pt;
+          font-weight: bold;
+          margin-bottom: 10px;
+          text-transform: uppercase;
+          color: #000000;
+        }
+        .report-info {
+          text-align: center;
+          margin-bottom: 25px;
+          font-size: 11pt;
+          padding: 15px;
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+        }
+        .report-info p {
+          margin-bottom: 5px;
+        }
+        .section-title { 
+          font-size: 14pt; 
+          font-weight: bold; 
+          margin: 30px 0 20px 0; 
+          text-align: center;
+          text-transform: uppercase;
+          border-bottom: 1px solid #000000;
+          padding-bottom: 10px;
+          color: #000000;
+        }
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin: 25px 0; 
+          font-size: 10pt;
+          border: 1px solid #000000;
+        }
+        th { 
+          background: #f8f9fa; 
+          padding: 10px 8px; 
+          text-align: left; 
+          font-weight: bold; 
+          color: #000000;
+          text-transform: uppercase;
+          font-size: 9pt;
+          border: 1px solid #000000;
+        }
+        td { 
+          padding: 8px; 
+          border: 1px solid #000000;
+          vertical-align: top;
+          background: white;
+        }
+        tr:nth-child(even) td {
+          background: #f8f9fa;
+        }
+        .no-data { 
+          text-align: center; 
+          padding: 25px; 
+          font-style: italic;
+          color: #666666;
+          background: #f8f9fa;
+        }
+        .summary-section {
+          margin: 25px 0;
+          padding: 20px;
+          border: 1px solid #000000;
+          background: #f8f9fa;
+        }
+        .summary-item {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 12px;
+          font-size: 11pt;
+          padding: 8px 0;
+          border-bottom: 1px solid #dee2e6;
+        }
+        .summary-item:last-child {
+          margin-bottom: 0;
+          border-bottom: none;
+        }
+        .summary-label {
+          font-weight: bold;
+          color: #000000;
+        }
+        .summary-value {
+          font-weight: bold;
+          color: #000000;
+        }
+        .footer { 
+          margin-top: 50px; 
+          text-align: center; 
+          font-size: 9pt; 
+          border-top: 1px solid #000000;
+          padding-top: 15px;
+          color: #666666;
+        }
+        .page-number {
+          text-align: center;
+          margin-top: 25px;
+          font-size: 9pt;
+          color: #666666;
+        }
+        @media print {
+          body { margin: 0; padding: 15px; }
+          .page-number {
+            position: fixed;
+            bottom: 10px;
+            right: 0;
+            left: 0;
+          }
+        }
+      </style>
+    `;
+
+    const header = `
+      <div class="university-header">
+        <div class="logo-container">
+          <img src="file:///d:/Proyects/unt-practicas-tesis/backend/src/assets/images/logo-unt.png" alt="Logo UNT" class="university-logo" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="logo-placeholder">
+            LOGO UNT
+          </div>
+        </div>
+        <h1>UNIVERSIDAD NACIONAL DE TRUJILLO</h1>
+        <h2>FACULTAD DE ${data.facultadNombre || 'INGENIERÍA'}</h2>
+        <h3>Sistema de Gestión de Prácticas y Tesis</h3>
+      </div>
+      
+      <div class="report-header">
+        <h1>${this.getReportTitle(templateName)}</h1>
+      </div>
+      
+      <div class="report-info">
+        <p><strong>Fecha de Generación:</strong> ${data.fecha || new Date().toLocaleDateString('es-PE')}</p>
+        <p><strong>Período:</strong> ${data.periodo || 'Todos los períodos'}</p>
+        ${data.facultadId ? `<p><strong>Código de Facultad:</strong> ${data.facultadId}</p>` : ''}
+        <p><strong>Generado por:</strong> Coordinador de Facultad</p>
+      </div>
+    `;
+
+    switch (templateName) {
+      case 'internships':
+        return this.generateInternshipsTemplate(data, commonStyles, header);
+      case 'thesis':
+        return this.generateThesisTemplate(data, commonStyles, header);
+      case 'students':
+        return this.generateStudentsTemplate(data, commonStyles, header);
+      case 'advisors':
+        return this.generateAdvisorsTemplate(data, commonStyles, header);
+      case 'agreements':
+        return this.generateAgreementsTemplate(data, commonStyles, header);
+      case 'stats':
+        return this.generateStatsTemplate(data, commonStyles, header);
+      default:
+        throw new Error(`Plantilla de facultad no soportada: ${templateName}`);
+    }
+  }
+
+  private getReportTitle(templateName: string): string {
+    const titles: Record<string, string> = {
+      'internships': 'PRÁCTICAS PROFESIONALES',
+      'thesis': 'PROYECTOS DE TESIS',
+      'students': 'ESTUDIANTES',
+      'advisors': 'ASESORES ACADÉMICOS',
+      'agreements': 'CONVENIOS EMPRESARIALES',
+      'stats': 'ESTADÍSTICAS GENERALES'
+    };
+    return titles[templateName] || 'REPORTE';
+  }
+
+  private generateInternshipsTemplate(data: any, styles: string, header: string): string {
+    const summarySection = `
+      <div class="summary-section">
+        <div class="summary-item">
+          <span class="summary-label">Total de Prácticas:</span>
+          <span class="summary-value">${data.total || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Prácticas Activas:</span>
+          <span class="summary-value">${data.porEstado?.ACTIVA || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Prácticas Finalizadas:</span>
+          <span class="summary-value">${data.porEstado?.FINALIZADA || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Prácticas en Proceso:</span>
+          <span class="summary-value">${data.porEstado?.EN_PROCESO || 0}</span>
+        </div>
+      </div>
+    `;
+
+    const tableRows = data.items?.map((item: any) => `
+      <tr>
+        <td>${item.estudiante?.usuario?.nombre || 'N/A'} ${item.estudiante?.usuario?.apellidoPaterno || ''}</td>
+        <td>${item.estudiante?.codigoUniversitario || 'N/A'}</td>
+        <td>${item.empresa?.razonSocial || item.nombreEmpresaExterna || 'N/A'}</td>
+        <td>${item.estado || 'N/A'}</td>
+        <td>${item.fechaInicio ? new Date(item.fechaInicio).toLocaleDateString('es-PE') : 'N/A'}</td>
+        <td>${item.fechaFin ? new Date(item.fechaFin).toLocaleDateString('es-PE') : 'N/A'}</td>
+        <td>${item.asesorAcademico?.usuario?.nombre || 'Sin asignar'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7" class="no-data">No hay datos disponibles</td></tr>';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        ${styles}
+      </head>
+      <body>
+        ${header}
+        ${summarySection}
+        <h2 class="section-title">RELACIÓN DE PRÁCTICAS PROFESIONALES</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th>Código</th>
+              <th>Empresa</th>
+              <th>Estado</th>
+              <th>Fecha Inicio</th>
+              <th>Fecha Fin</th>
+              <th>Asesor Académico</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis</p>
+          <p>Reporte generado automáticamente el ${new Date().toLocaleDateString('es-PE')}</p>
+        </div>
+        <div class="page-number">Página 1</div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateThesisTemplate(data: any, styles: string, header: string): string {
+    const summarySection = `
+      <div class="summary-section">
+        <div class="summary-item">
+          <span class="summary-label">Total de Tesis:</span>
+          <span class="summary-value">${data.total || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">En Desarrollo:</span>
+          <span class="summary-value">${data.porEstado?.EN_DESARROLLO || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Aprobadas:</span>
+          <span class="summary-value">${data.porEstado?.APROBADO || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Sustentadas:</span>
+          <span class="summary-value">${data.porEstado?.SUSTENTADO || 0}</span>
+        </div>
+      </div>
+    `;
+
+    const tableRows = data.items?.map((item: any) => `
+      <tr>
+        <td>${item.titulo || 'N/A'}</td>
+        <td>${item.estudiante?.usuario?.nombre || 'N/A'} ${item.estudiante?.usuario?.apellidoPaterno || ''}</td>
+        <td>${item.estudiante?.codigoUniversitario || 'N/A'}</td>
+        <td>${item.area || 'N/A'}</td>
+        <td>${item.estado || 'N/A'}</td>
+        <td>${item.asesor?.usuario?.nombre || 'Sin asignar'}</td>
+        <td>${item.fechaRegistro ? new Date(item.fechaRegistro).toLocaleDateString('es-PE') : 'N/A'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7" class="no-data">No hay datos disponibles</td></tr>';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        ${styles}
+      </head>
+      <body>
+        ${header}
+        ${summarySection}
+        <h2 class="section-title">RELACIÓN DE PROYECTOS DE TESIS</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Título de Tesis</th>
+              <th>Estudiante</th>
+              <th>Código</th>
+              <th>Área</th>
+              <th>Estado</th>
+              <th>Asesor</th>
+              <th>Fecha Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis</p>
+          <p>Reporte generado automáticamente el ${new Date().toLocaleDateString('es-PE')}</p>
+        </div>
+        <div class="page-number">Página 1</div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateStudentsTemplate(data: any, styles: string, header: string): string {
+    const summarySection = `
+      <div class="summary-section">
+        <div class="summary-item">
+          <span class="summary-label">Total de Estudiantes:</span>
+          <span class="summary-value">${data.total || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Estudiantes Activos:</span>
+          <span class="summary-value">${data.items?.filter((e: any) => e.activo).length || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">En Prácticas:</span>
+          <span class="summary-value">${data.enPractica || 0}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">En Tesis:</span>
+          <span class="summary-value">${data.enTesis || 0}</span>
+        </div>
+      </div>
+    `;
+
+    const tableRows = data.items?.map((item: any) => `
+      <tr>
+        <td>${item.usuario?.nombre || 'N/A'} ${item.usuario?.apellidoPaterno || ''} ${item.usuario?.apellidoMaterno || ''}</td>
+        <td>${item.codigoUniversitario || 'N/A'}</td>
+        <td>${item.carrera?.nombre || 'N/A'}</td>
+        <td>${item.anioIngreso || 'N/A'}</td>
+        <td>${item.promedioGeneral || 'N/A'}</td>
+        <td>${item.creditosAprobados || 'N/A'}</td>
+        <td>${item.activo ? 'ACTIVO' : 'INACTIVO'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7" class="no-data">No hay datos disponibles</td></tr>';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        ${styles}
+      </head>
+      <body>
+        ${header}
+        ${summarySection}
+        <h2 class="section-title">RELACIÓN DE ESTUDIANTES</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre Completo</th>
+              <th>Código Universitario</th>
+              <th>Carrera</th>
+              <th>Año Ingreso</th>
+              <th>Promedio</th>
+              <th>Créditos Aprobados</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Universidad Nacional de Trujillo - Sistema de Gestión de Prácticas y Tesis</p>
+          <p>Reporte generado automáticamente el ${new Date().toLocaleDateString('es-PE')}</p>
+        </div>
+        <div class="page-number">Página 1</div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateAdvisorsTemplate(data: any, styles: string, header: string): string {
+    const summaryCards = `
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h3>${data.total || 0}</h3>
+          <p>Total de Docentes</p>
+        </div>
+        <div class="summary-card">
+          <h3>${data.conCarga || 0}</h3>
+          <p>Con Carga Asignada</p>
+        </div>
+      </div>
+    `;
+
+    const tableRows = data.items?.map((item: any) => `
+      <tr>
+        <td>${item.nombre || 'N/A'}</td>
+        <td>${item.email || 'N/A'}</td>
+        <td>${item.especialidad || 'N/A'}</td>
+        <td>${item.categoria || 'N/A'}</td>
+        <td>${item.cargaTotal || 0}</td>
+        <td><span class="status-${item.activo ? 'active' : 'inactive'}">${item.activo ? 'Activo' : 'Inactivo'}</span></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" class="no-data">No hay datos disponibles</td></tr>';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        ${styles}
+      </head>
+      <body>
+        ${header}
+        ${summaryCards}
+        <h2 class="section-title">👨‍🏫 Lista de Docentes/Asesores</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Especialidad</th>
+              <th>Categoría</th>
+              <th>Carga Total</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Reporte generado automáticamente por el Sistema de Gestión de Prácticas y Tesis</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateAgreementsTemplate(data: any, styles: string, header: string): string {
+    const summaryCards = `
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h3>${data.total || 0}</h3>
+          <p>Total de Convenios</p>
+        </div>
+        <div class="summary-card">
+          <h3>${data.porVencer30Dias || 0}</h3>
+          <p>Por Vencer (30 días)</p>
+        </div>
+      </div>
+    `;
+
+    const tableRows = data.items?.map((item: any) => `
+      <tr>
+        <td>${item.empresa || 'N/A'}</td>
+        <td>${item.tipo || 'N/A'}</td>
+        <td>${item.fechaInicio ? new Date(item.fechaInicio).toLocaleDateString('es-PE') : 'N/A'}</td>
+        <td>${item.fechaVencimiento ? new Date(item.fechaVencimiento).toLocaleDateString('es-PE') : 'N/A'}</td>
+        <td>${item.diasRestantes || 'N/A'}</td>
+        <td><span class="status-${item.alerta === 'normal' ? 'active' : 'pending'}">${item.alerta || 'N/A'}</span></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" class="no-data">No hay datos disponibles</td></tr>';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        ${styles}
+      </head>
+      <body>
+        ${header}
+        ${summaryCards}
+        <h2 class="section-title">🤝 Lista de Convenios</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Empresa</th>
+              <th>Tipo</th>
+              <th>Fecha Inicio</th>
+              <th>Fecha Vencimiento</th>
+              <th>Días Restantes</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Reporte generado automáticamente por el Sistema de Gestión de Prácticas y Tesis</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateStatsTemplate(data: any, styles: string, header: string): string {
+    const summaryCards = `
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h3>${data.practicas?.total || 0}</h3>
+          <p>Total de Prácticas</p>
+        </div>
+        <div class="summary-card">
+          <h3>${data.tesis?.total || 0}</h3>
+          <p>Total de Tesis</p>
+        </div>
+        <div class="summary-card">
+          <h3>${data.estudiantes?.total || 0}</h3>
+          <p>Total de Estudiantes</p>
+        </div>
+        <div class="summary-card">
+          <h3>${data.docentes?.total || 0}</h3>
+          <p>Total de Docentes</p>
+        </div>
+      </div>
+    `;
+
+    const practicasDetails = Object.entries(data.practicas?.porEstado || {}).map(([estado, count]: [string, any]) => `
+      <tr>
+        <td>Prácticas</td>
+        <td>${estado}</td>
+        <td>${count}</td>
+      </tr>
+    `).join('');
+
+    const tesisDetails = Object.entries(data.tesis?.porEstado || {}).map(([estado, count]: [string, any]) => `
+      <tr>
+        <td>Tesis</td>
+        <td>${estado}</td>
+        <td>${count}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        ${styles}
+      </head>
+      <body>
+        ${header}
+        ${summaryCards}
+        <h2 class="section-title">📈 Detalle de Estadísticas</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${practicasDetails}
+            ${tesisDetails}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Reporte generado automáticamente por el Sistema de Gestión de Prácticas y Tesis</p>
+        </div>
+      </body>
+      </html>
+    `;
   }
 
   // ==================== REPORTES PDF ====================
@@ -1761,27 +2420,38 @@ export class ReportsService {
    * Obtiene las prácticas de estudiantes de una facultad específica
    * Requiere el ID de la facultad del coordinador
    */
-  async getFacultyInternships(facultadId: number, filters?: ReportFilters): Promise<any> {
-    // Obtener carreras de la facultad
-    const carreras = await this.userRepo.query(
-      `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
-      [facultadId]
-    );
-    const carreraIds = carreras.map((c: any) => c.id);
+  async getFacultyInternships(facultadId: number | undefined, filters?: ReportFilters): Promise<any> {
+    // Si facultadId es undefined, mostrar todas las prácticas (acceso total)
+    let carreraIds: number[] = [];
+    
+    if (facultadId !== undefined) {
+      // Obtener carreras de la facultad específica
+      const carreras = await this.userRepo.query(
+        `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+        [facultadId]
+      );
+      carreraIds = carreras.map((c: any) => c.id);
 
-    if (carreraIds.length === 0) {
-      return { total: 0, items: [] };
+      if (carreraIds.length === 0) {
+        return { total: 0, items: [] };
+      }
     }
 
-    // Obtener prácticas de estudiantes de esas carreras
-    const practicas = await this.internshipRepo
+    // Obtener prácticas de estudiantes de esas carreras (o todas si carreraIds está vacío)
+    const query = this.internshipRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.estudiante', 'e')
       .leftJoinAndSelect('e.usuario', 'u')
       .leftJoinAndSelect('e.carrera', 'c')
       .leftJoinAndSelect('p.empresa', 'emp')
-      .leftJoinAndSelect('p.asesorAcademico', 'aa')
-      .where('e.carrera_id IN (:...carreraIds)', { carreraIds })
+      .leftJoinAndSelect('p.asesorAcademico', 'aa');
+    
+    // Solo filtrar por carrera si hay carreras específicas
+    if (carreraIds.length > 0) {
+      query.where('e.carrera_id IN (:...carreraIds)', { carreraIds });
+    }
+    
+    const practicas = await query
       .orderBy('p.fecha_inicio', 'DESC')
       .getMany();
 
@@ -1807,26 +2477,37 @@ export class ReportsService {
   /**
    * Obtiene los proyectos de tesis de estudiantes de una facultad específica
    */
-  async getFacultyThesis(facultadId: number, filters?: ReportFilters): Promise<any> {
-    const carreras = await this.userRepo.query(
-      `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
-      [facultadId]
-    );
-    const carreraIds = carreras.map((c: any) => c.id);
+  async getFacultyThesis(facultadId: number | undefined, filters?: ReportFilters): Promise<any> {
+    // Si facultadId es undefined, mostrar todas las tesis (acceso total)
+    let carreraIds: number[] = [];
+    
+    if (facultadId !== undefined) {
+      const carreras = await this.userRepo.query(
+        `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+        [facultadId]
+      );
+      carreraIds = carreras.map((c: any) => c.id);
 
-    if (carreraIds.length === 0) {
-      return { total: 0, items: [] };
+      if (carreraIds.length === 0) {
+        return { total: 0, items: [] };
+      }
     }
 
-    const tesis = await this.thesisRepo
+    const query = this.thesisRepo
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.estudiante', 'e')
       .leftJoinAndSelect('e.usuario', 'u')
       .leftJoinAndSelect('e.carrera', 'c')
       .leftJoinAndSelect('t.asignaciones', 'a')
       .leftJoinAndSelect('a.docente', 'd')
-      .leftJoinAndSelect('d.usuario', 'du')
-      .where('e.carrera_id IN (:...carreraIds)', { carreraIds })
+      .leftJoinAndSelect('d.usuario', 'du');
+    
+    // Solo filtrar por carrera si hay carreras específicas
+    if (carreraIds.length > 0) {
+      query.where('e.carrera_id IN (:...carreraIds)', { carreraIds });
+    }
+    
+    const tesis = await query
       .orderBy('t.fecha_registro', 'DESC')
       .getMany();
 
@@ -1855,23 +2536,38 @@ export class ReportsService {
   /**
    * Obtiene los estudiantes activos de una facultad (con prácticas o tesis)
    */
-  async getFacultyStudents(facultadId: number, filters?: ReportFilters): Promise<any> {
-    const carreras = await this.userRepo.query(
-      `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
-      [facultadId]
-    );
-    const carreraIds = carreras.map((c: any) => c.id);
+  async getFacultyStudents(facultadId: number | undefined, filters?: ReportFilters): Promise<any> {
+    // Si facultadId es undefined, mostrar todos los estudiantes (acceso total)
+    let carreraIds: number[] = [];
+    
+    if (facultadId !== undefined) {
+      const carreras = await this.userRepo.query(
+        `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+        [facultadId]
+      );
+      carreraIds = carreras.map((c: any) => c.id);
 
-    if (carreraIds.length === 0) {
-      return { total: 0, items: [] };
+      if (carreraIds.length === 0) {
+        return { total: 0, items: [] };
+      }
     }
 
-    const estudiantes = await this.studentRepo
+    const query = this.studentRepo
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.usuario', 'u')
-      .leftJoinAndSelect('e.carrera', 'c')
-      .where('e.carrera_id IN (:...carreraIds)', { carreraIds })
-      .andWhere('e.activo = :activo', { activo: true })
+      .leftJoinAndSelect('e.carrera', 'c');
+    
+    // Build where conditions
+    const whereConditions: any = { activo: true };
+    
+    // Solo filtrar por carrera si hay carreras específicas
+    if (carreraIds.length > 0) {
+      whereConditions.carreraId = carreraIds;
+    }
+    
+    query.where(whereConditions);
+    
+    const estudiantes = await query
       .orderBy('u.apellido_paterno', 'ASC')
       .getMany();
 
@@ -1893,18 +2589,24 @@ export class ReportsService {
   /**
    * Obtiene los docentes/asesores de una facultad con su carga académica
    */
-  async getFacultyAdvisors(facultadId: number, filters?: ReportFilters): Promise<any> {
+  async getFacultyAdvisors(facultadId: number | undefined, filters?: ReportFilters): Promise<any> {
     // Obtener docentes de la facultad a través de las carreras
-    const docentes = await this.userRepo.query(
-      `SELECT DISTINCT d.id, d.usuario_id, d.especialidad, d.categoria,
+    let query = `SELECT DISTINCT d.id, d.usuario_id, d.especialidad, d.categoria,
               u.nombre, u.apellido_paterno, u.apellido_materno, u.email,
               c.nombre as carrera_nombre
        FROM docente d
        INNER JOIN usuario u ON u.id = d.usuario_id
-       INNER JOIN carrera c ON c.id = d.carrera_id
-       WHERE c.facultad_id = $1 AND u.activo = true`,
-      [facultadId]
-    );
+       INNER JOIN carrera c ON c.id = d.carrera_id`;
+    
+    let params: any[] = [];
+    if (facultadId !== undefined) {
+      query += ` WHERE c.facultad_id = $1 AND u.activo = true`;
+      params.push(facultadId);
+    } else {
+      query += ` WHERE u.activo = true`;
+    }
+    
+    const docentes = await this.userRepo.query(query, params);
 
     const items = await Promise.all(
       docentes.map(async (d: any) => {
@@ -1953,9 +2655,10 @@ export class ReportsService {
   /**
    * Obtiene los convenios relacionados con estudiantes de la facultad
    */
-  async getFacultyAgreements(facultadId: number, filters?: ReportFilters): Promise<any> {
-    // Obtener empresas que tienen convenios y también tienen prácticas con estudiantes de esta facultad
-    const convenios = await this.agreementRepo
+  async getFacultyAgreements(facultadId: number | undefined, filters?: ReportFilters): Promise<any> {
+    // Obtener empresas que tienen convenios y también tienen prácticas con estudiantes
+    // Si facultadId es undefined, mostrar todos los convenios (acceso total)
+    const query = this.agreementRepo
       .createQueryBuilder('conv')
       .leftJoinAndSelect('conv.empresa', 'e')
       .innerJoin(
@@ -1971,9 +2674,15 @@ export class ReportsService {
       .innerJoin(
         'carrera',
         'c',
-        'c.id = est.carrera_id AND c.facultad_id = :facultadId',
-        { facultadId }
-      )
+        'c.id = est.carrera_id'
+      );
+    
+    // Solo filtrar por facultad si hay una facultad específica
+    if (facultadId !== undefined) {
+      query.andWhere('c.facultad_id = :facultadId', { facultadId });
+    }
+    
+    const convenios = await query
       .distinct(true)
       .getMany();
 
@@ -1996,35 +2705,90 @@ export class ReportsService {
   /**
    * Estadísticas generales de la facultad
    */
-  async getFacultyStats(facultadId: number, filters?: ReportFilters): Promise<any> {
-    const [internships, thesis, students, advisors] = await Promise.all([
-      this.getFacultyInternships(facultadId, filters),
-      this.getFacultyThesis(facultadId, filters),
-      this.getFacultyStudents(facultadId, filters),
-      this.getFacultyAdvisors(facultadId, filters),
-    ]);
+  async getFacultyStats(facultadId: number | undefined, filters?: ReportFilters): Promise<any> {
+    try {
+      // Simplified approach - get basic counts without complex relations
+      let carreraIds: number[] = [];
+      
+      if (facultadId !== undefined) {
+        const carreras = await this.userRepo.query(
+          `SELECT c.id FROM carrera c WHERE c.facultad_id = $1`,
+          [facultadId]
+        );
+        carreraIds = carreras.map((c: any) => c.id);
+      }
 
-    return {
-      facultadId,
-      fecha: new Date().toLocaleDateString('es-PE'),
-      practicas: {
-        total: internships.total,
-        porEstado: this.groupByEstado(internships.items, 'estado'),
-      },
-      tesis: {
-        total: thesis.total,
-        porEstado: this.groupByEstado(thesis.items, 'estado'),
-      },
-      estudiantes: {
-        total: students.total,
-        enPractica: internships.total,
-        enTesis: thesis.total,
-      },
-      docentes: {
-        total: advisors.total,
-        conCarga: advisors.items.filter((d: any) => d.cargaTotal > 0).length,
-      },
-    };
+      // Get practice stats
+      let practicasQuery = this.internshipRepo
+        .createQueryBuilder('p')
+        .leftJoin('p.estudiante', 'e');
+      
+      if (carreraIds.length > 0) {
+        practicasQuery = practicasQuery.where('e.carrera_id IN (:...carreraIds)', { carreraIds });
+      }
+      
+      const practicas = await practicasQuery.getMany();
+      
+      // Get thesis stats
+      let tesisQuery = this.thesisRepo
+        .createQueryBuilder('t')
+        .leftJoin('t.estudiante', 'e')
+        .where('t.activo = :activo', { activo: true });
+      
+      if (carreraIds.length > 0) {
+        tesisQuery = tesisQuery.andWhere('e.carrera_id IN (:...carreraIds)', { carreraIds });
+      }
+      
+      const tesis = await tesisQuery.getMany();
+      
+      // Get student stats
+      let estudiantesQuery = this.studentRepo
+        .createQueryBuilder('e')
+        .where('e.activo = :activo', { activo: true });
+      
+      if (carreraIds.length > 0) {
+        estudiantesQuery = estudiantesQuery.andWhere('e.carrera_id IN (:...carreraIds)', { carreraIds });
+      }
+      
+      const estudiantes = await estudiantesQuery.getMany();
+
+      // Group by states
+      const practicasPorEstado = this.groupByEstado(practicas, 'estado');
+      const tesisPorEstado = this.groupByEstado(tesis, 'estado');
+
+      return {
+        facultadId,
+        fecha: new Date().toLocaleDateString('es-PE'),
+        practicas: {
+          total: practicas.length,
+          porEstado: practicasPorEstado,
+        },
+        tesis: {
+          total: tesis.length,
+          porEstado: tesisPorEstado,
+        },
+        estudiantes: {
+          total: estudiantes.length,
+          enPractica: practicasPorEstado.ACTIVA || 0,
+          enTesis: tesisPorEstado.EN_DESARROLLO || 0,
+        },
+        docentes: {
+          total: 0, // Simplified for now
+          conCarga: 0,
+        },
+      };
+    } catch (error) {
+      console.error('Error in getFacultyStats:', error);
+      // Return safe default values
+      return {
+        facultadId,
+        fecha: new Date().toLocaleDateString('es-PE'),
+        practicas: { total: 0, porEstado: {} },
+        tesis: { total: 0, porEstado: {} },
+        estudiantes: { total: 0, enPractica: 0, enTesis: 0 },
+        docentes: { total: 0, conCarga: 0 },
+      };
+    }
   }
 
   private groupByEstado(items: any[], key: string): Record<string, number> {

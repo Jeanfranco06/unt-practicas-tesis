@@ -44,18 +44,8 @@ export class IsRucValidConstraint implements ValidatorConstraintInterface {
     }
 
     const resto = suma % 11;
-    const digitoCalculado = 11 - resto;
-
-    // Si el dígito calculado es 11, el verificador debe ser 0
-    // Si es 10, debe ser 1
-    let digitoEsperado: number;
-    if (digitoCalculado === 11) {
-      digitoEsperado = 0;
-    } else if (digitoCalculado === 10) {
-      digitoEsperado = 1;
-    } else {
-      digitoEsperado = digitoCalculado;
-    }
+    // SUNAT: última cifra de (11 - resto); equivale a (11 - resto) % 10 con resto = suma mod 11
+    const digitoEsperado = (11 - resto) % 10;
 
     return digitoEsperado === digitoVerificador;
   }

@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
-// import { Career } from './career.entity';
+import { Career } from './career.entity';
 
 @Entity('facultad')
 export class Faculty {
@@ -21,6 +21,6 @@ export class Faculty {
   @CreateDateColumn({ name: 'creado_en' })
   creadoEn: Date;
 
-  // @OneToMany(() => Career, (career: any) => career.facultad)
-  carreras: any[];
+  @OneToMany(() => Career, (career) => career.facultad)
+  carreras: Career[];
 }

@@ -47,10 +47,12 @@ export default function InternshipsPage() {
     try {
       setIsLoading(true);
       const data = await fetchWithAuth(`${API_URL}/api/internships/offers`);
-      setOffers(data);
+      // Ensure data is always an array
+      setOffers(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err: any) {
       setError(err.message);
+      setOffers([]); // Ensure offers is always an array even on error
     } finally {
       setIsLoading(false);
     }

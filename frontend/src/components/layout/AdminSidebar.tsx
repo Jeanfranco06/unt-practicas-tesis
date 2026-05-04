@@ -19,51 +19,131 @@ import {
   UserCog,
   UserCircle,
   Bell,
+  School,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth, UserRole } from '@/hooks/useAuth';
 import { useSidebar } from '@/components/layout/SidebarContext';
 
-const navItemsByRole: Record<UserRole, { href: string; label: string; icon: any }[]> = {
+interface NavSection {
+  label?: string;
+  items: { href: string; label: string; icon: any }[];
+}
+
+const navSectionsByRole: Record<UserRole, NavSection[]> = {
   Administrador: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
-    { href: '/dashboard/users', label: 'Usuarios', icon: Users },
-    { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
-    { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
-    { href: '/dashboard/representatives', label: 'Representantes', icon: UserCircle },
-    { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
-    { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
-    { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
+    {
+      items: [
+        { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Gestión',
+      items: [
+        { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+        { href: '/dashboard/users', label: 'Usuarios', icon: Users },
+        { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
+        { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
+        { href: '/dashboard/representatives', label: 'Representantes', icon: UserCircle },
+      ],
+    },
+    {
+      label: 'Estructura Académica',
+      items: [
+        { href: '/dashboard/academic/faculties', label: 'Facultades', icon: School },
+        { href: '/dashboard/academic/careers', label: 'Carreras', icon: Layers },
+      ],
+    },
+    {
+      label: 'Operaciones',
+      items: [
+        { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
+        { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
+        { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
+      ],
+    },
+    {
+      label: 'Reportes',
+      items: [
+        { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
+      ],
+    },
   ],
   Coordinador: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
-    { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
-    { href: '/dashboard/students', label: 'Estudiantes', icon: Users },
-    { href: '/dashboard/representatives', label: 'Representantes', icon: UserCircle },
-    { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
-    { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
-    { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
+    {
+      items: [
+        { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Gestión',
+      items: [
+        { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+        { href: '/dashboard/teachers', label: 'Docentes', icon: UserCog },
+        { href: '/dashboard/students', label: 'Estudiantes', icon: Users },
+        { href: '/dashboard/representatives', label: 'Representantes', icon: UserCircle },
+      ],
+    },
+    {
+      label: 'Operaciones',
+      items: [
+        { href: '/dashboard/internships', label: 'Prácticas', icon: Briefcase },
+        { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
+        { href: '/dashboard/companies', label: 'Empresas', icon: Building2 },
+      ],
+    },
+    {
+      label: 'Reportes',
+      items: [
+        { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
+      ],
+    },
   ],
   Asesor: [
-    { href: '/dashboard/advisor', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
-    { href: '/dashboard/advisor/internships', label: 'Prácticas', icon: Briefcase },
-    { href: '/dashboard/advisor/thesis', label: 'Tesis', icon: BookOpen },
-    { href: '/dashboard/advisor/students', label: 'Estudiantes', icon: Users },
+    {
+      items: [
+        { href: '/dashboard/advisor', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Gestión',
+      items: [
+        { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+        { href: '/dashboard/advisor/students', label: 'Estudiantes', icon: Users },
+      ],
+    },
+    {
+      label: 'Supervisión',
+      items: [
+        { href: '/dashboard/advisor/internships', label: 'Prácticas', icon: Briefcase },
+        { href: '/dashboard/advisor/thesis', label: 'Tesis', icon: BookOpen },
+      ],
+    },
   ],
   RepresentanteEmpresa: [
-    { href: '/dashboard/company', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
-    { href: '/dashboard/company/offers', label: 'Mis Ofertas', icon: Briefcase },
-    { href: '/dashboard/company/applications', label: 'Postulaciones', icon: Users },
-    { href: '/dashboard/company/internships', label: 'Prácticas Activas', icon: GraduationCap },
-    { href: '/dashboard/company/agreements', label: 'Convenios', icon: FileText },
-    { href: '/dashboard/company/profile', label: 'Mi Empresa', icon: Building2 },
+    {
+      items: [
+        { href: '/dashboard/company', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Mi Empresa',
+      items: [
+        { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
+        { href: '/dashboard/company/profile', label: 'Perfil', icon: Building2 },
+      ],
+    },
+    {
+      label: 'Ofertas y Prácticas',
+      items: [
+        { href: '/dashboard/company/offers', label: 'Mis Ofertas', icon: Briefcase },
+        { href: '/dashboard/company/applications', label: 'Postulaciones', icon: Users },
+        { href: '/dashboard/company/internships', label: 'Prácticas Activas', icon: GraduationCap },
+        { href: '/dashboard/company/agreements', label: 'Convenios', icon: FileText },
+      ],
+    },
   ],
   Estudiante: [],
 };
@@ -86,10 +166,10 @@ export function AdminSidebar() {
     return () => window.removeEventListener('toggleMobileMenu', toggleMobileOpen);
   }, [toggleMobileOpen]);
 
-  const navItems = role ? navItemsByRole[role] || [] : [];
+  const navSections = role ? navSectionsByRole[role] || [] : [];
 
   // No mostrar para roles que tienen sidebar específico
-  if (!role || role === 'Estudiante' || role === 'Coordinador' || role === 'RepresentanteEmpresa') return null;
+  if (!role || role === 'Estudiante') return null;
 
   return (
     <>
@@ -161,63 +241,76 @@ export function AdminSidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto overflow-x-hidden">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === '/dashboard'
-                ? pathname === '/dashboard'
-                : pathname === item.href || pathname?.startsWith(`${item.href}/`);
-            const Icon = item.icon;
+        <nav className="flex-1 py-6 px-3 space-y-6 overflow-y-auto overflow-x-hidden">
+          {navSections.map((section, sectionIdx) => (
+            <div key={sectionIdx} className="space-y-1">
+              {section.label && !collapsed && (
+                <div className="px-3 py-2">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
+                    {section.label}
+                  </h3>
+                </div>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === '/dashboard'
+                      ? pathname === '/dashboard'
+                      : pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                  const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-                  'hover:bg-sidebar-accent group relative',
-                  collapsed && 'justify-center',
-                  isActive
-                    ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
-                    : 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
-                )}
-              >
-                <Icon
-                  className={cn(
-                    'w-5 h-5 flex-shrink-0 transition-colors',
-                    isActive
-                      ? 'text-primary'
-                      : 'text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70'
-                  )}
-                />
-                <AnimatePresence>
-                  {!collapsed && (
-                    <motion.span
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -8 }}
-                      transition={{ duration: 0.15 }}
-                      className="whitespace-nowrap"
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                        'hover:bg-sidebar-accent group relative',
+                        collapsed && 'justify-center',
+                        isActive
+                          ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                          : 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
+                      )}
                     >
-                      {item.label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-                {isActive && !collapsed && (
-                  <motion.div
-                    layoutId="activeNavAdmin"
-                    className="absolute left-0 w-1 h-8 bg-primary rounded-r-full"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  />
-                )}
-              </Link>
-            );
-          })}
+                      <Icon
+                        className={cn(
+                          'w-5 h-5 flex-shrink-0 transition-colors',
+                          isActive
+                            ? 'text-primary'
+                            : 'text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70'
+                        )}
+                      />
+                      <AnimatePresence>
+                        {!collapsed && (
+                          <motion.span
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -8 }}
+                            transition={{ duration: 0.15 }}
+                            className="whitespace-nowrap"
+                          >
+                            {item.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      {isActive && !collapsed && (
+                        <motion.div
+                          layoutId="activeNavAdmin"
+                          className="absolute left-0 w-1 h-8 bg-primary rounded-r-full"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                        />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
-          <div className="pt-4 mt-4 border-t border-sidebar-border/50">
+          <div className="pt-4 mt-4 border-t border-sidebar-border/50 space-y-1">
             {secondaryNav.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;

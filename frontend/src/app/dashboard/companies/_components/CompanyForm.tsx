@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { CompanyFormData, Company } from '../_lib/companies';
-import { normalizeCompanyFormData } from '../_lib/companies';
+import { normalizeCompanyFormData, validateRUC, generarRUCPrueba } from '../_lib/companies';
 
 interface CompanyFormProps {
   initialData?: Company | null;
@@ -28,6 +28,7 @@ export function CompanyForm({ initialData, submitLabel, title, onCancel, onSubmi
     activo: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rucError, setRucError] = useState<string>('');
 
   useEffect(() => {
     if (initialData) {
@@ -49,6 +50,12 @@ export function CompanyForm({ initialData, submitLabel, title, onCancel, onSubmi
 
     if (formData.ruc.length !== 11) {
       alert('El RUC debe tener 11 dígitos');
+      return;
+    }
+
+    const rucValidation = validateRUC(formData.ruc);
+    if (!rucValidation.isValid) {
+      alert(rucValidation.message);
       return;
     }
 
@@ -76,13 +83,40 @@ export function CompanyForm({ initialData, submitLabel, title, onCancel, onSubmi
             <Input
               id="ruc"
               value={formData.ruc}
-              onChange={(e) => setFormData({ ...formData, ruc: e.target.value.replace(/\D/g, '').slice(0, 11) })}
-              className="bg-background border-border text-foreground"
+              onChange={(e) => {
+                const newRuc = e.target.value.replace(/\D/g, '').slice(0, 11);
+                setFormData({ ...formData, ruc: newRuc });
+                
+                // Validar en tiempo real si tiene 11 dígitos
+                if (newRuc.length === 11) {
+                  const validation = validateRUC(newRuc);
+                  setRucError(validation.isValid ? '' : validation.message);
+                } else {
+                  setRucError('');
+                }
+              }}
+              className={`bg-background border-border text-foreground ${rucError ? 'border-red-500' : ''}`}
               placeholder="20123456789"
               maxLength={11}
               required
             />
-            <p className="text-xs text-muted-foreground">11 dígitos numéricos</p>
+            <div className="flex justify-between items-start">
+              <p className="text-xs text-muted-foreground">11 dígitos numéricos. Ej: 20100070970, 20512345671</p>
+              {rucError && <p className="text-xs text-red-500">{rucError}</p>}
+              {!rucError && !initialData && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rucPrueba = generarRUCPrueba();
+                    setFormData({ ...formData, ruc: rucPrueba });
+                    setRucError('');
+                  }}
+                  className="text-xs text-blue-500 hover:underline"
+                >
+                  Generar RUC de prueba
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-2">

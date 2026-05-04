@@ -98,7 +98,8 @@ export default function CompanyOffersPage() {
       const data = await fetchWithAuth(
         `${API_URL}/api/internships/offers?empresaId=${empresaId}${statusParam}`
       );
-      setOffers(data);
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      setOffers(list);
     } catch (err: any) {
       toast({
         title: 'Error',

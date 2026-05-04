@@ -11,6 +11,7 @@ import { UsersModule } from '../users/users.module';
 import { ReportsModule } from '../reports/reports.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AcademicModule } from '../academic/academic.module';
 import { Teacher } from '../academic/entities/teacher.entity';
 
 @Global()
@@ -26,6 +27,7 @@ import { Teacher } from '../academic/entities/teacher.entity';
     ReportsModule,
     forwardRef(() => DashboardModule),
     forwardRef(() => NotificationsModule),
+    AcademicModule,
   ],
   providers: [TrpcService, TrpcRouter],
   exports: [TrpcRouter, TrpcService],

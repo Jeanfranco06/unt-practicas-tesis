@@ -38,7 +38,7 @@ interface Internship {
   fechaFin?: string;
   estudiante: {
     id: number;
-    codigo: string;
+    codigoUniversitario: string;
     usuario: {
       nombre: string;
       apellidoPaterno: string;
@@ -102,7 +102,7 @@ export function PracticesView({ internships, advisors, onBack, onAssign }: Pract
       filtered = filtered.filter(
         (i) =>
           `${i.estudiante.usuario.nombre} ${i.estudiante.usuario.apellidoPaterno}`.toLowerCase().includes(term) ||
-          i.estudiante.codigo.toLowerCase().includes(term) ||
+          i.estudiante.codigoUniversitario.toLowerCase().includes(term) ||
           (i.empresa?.razonSocial || i.nombreEmpresaExterna || '').toLowerCase().includes(term) ||
           i.estudiante.carrera?.nombre?.toLowerCase().includes(term) ||
           i.estudiante.carrera?.facultad?.nombre?.toLowerCase().includes(term)
@@ -199,7 +199,7 @@ export function PracticesView({ internships, advisors, onBack, onAssign }: Pract
                 {selectedInternship.estudiante.usuario.apellidoPaterno}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Código: {selectedInternship.estudiante.codigo}
+                Código: {selectedInternship.estudiante.codigoUniversitario}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 {selectedInternship.estudiante.carrera && (
@@ -443,7 +443,7 @@ export function PracticesView({ internships, advisors, onBack, onAssign }: Pract
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Código: {internship.estudiante.codigo}
+                      Código: {internship.estudiante.codigoUniversitario}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {internship.estudiante.carrera && (

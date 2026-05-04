@@ -7,10 +7,10 @@ import {
   CheckCircle,
   UserCheck,
   ClipboardList,
+  BadgeCheck,
   AlertCircle,
   Briefcase,
   BookOpen,
-  Users,
   Building2,
   ArrowRight,
   TrendingUp,
@@ -21,6 +21,7 @@ import {
   getPendingInternships,
   getAgreements,
   getThesisProjects,
+  getDraftOffersCount,
 } from './_lib/api';
 
 const containerVariants = {
@@ -35,6 +36,7 @@ const itemVariants = {
 
 interface DashboardStats {
   pendingApplications: number;
+  pendingOffers: number;
   pendingAssignments: number;
   expiringAgreements: number;
   activeInternships: number;
@@ -45,6 +47,7 @@ export default function CoordinatorDashboard() {
   const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
     pendingApplications: 0,
+    pendingOffers: 0,
     pendingAssignments: 0,
     expiringAgreements: 0,
     activeInternships: 0,
@@ -60,11 +63,12 @@ export default function CoordinatorDashboard() {
     const loadStats = async () => {
       try {
         setIsLoading(true);
-        const [applications, internships, agreements, thesis] = await Promise.all([
+        const [applications, internships, agreements, thesis, pendingOffers] = await Promise.all([
           getPendingApplications(),
           getPendingInternships(),
           getAgreements(),
           getThesisProjects(),
+          getDraftOffersCount(),
         ]);
 
         const expiringAgreements = agreements.filter((a: any) => {
@@ -77,6 +81,7 @@ export default function CoordinatorDashboard() {
 
         setStats({
           pendingApplications: applications.length,
+          pendingOffers,
           pendingAssignments: internships.length,
           expiringAgreements: expiringAgreements.length,
           activeInternships: internships.filter((i: any) => i.estado === 'activa').length,
@@ -106,8 +111,16 @@ export default function CoordinatorDashboard() {
       urgent: stats.pendingApplications > 0,
     },
     {
-      title: 'Asignar Asesores',
-      description: `${stats.pendingAssignments} práctica${stats.pendingAssignments !== 1 ? 's' : ''} pendiente${stats.pendingAssignments !== 1 ? 's' : ''}`,
+      title: 'Aprobar Ofertas de Práctica',
+      description: `${stats.pendingOffers} oferta${stats.pendingOffers !== 1 ? 's' : ''} en borrador`,
+      href: '/dashboard/coordinator/offers',
+      icon: BadgeCheck,
+      color: 'bg-violet-500',
+      urgent: stats.pendingOffers > 0,
+    },
+    {
+      title: 'Asignar Asesores y Jurados',
+      description: `${stats.pendingAssignments} práctica${stats.pendingAssignments !== 1 ? 's' : ''} sin asesor`,
       href: '/dashboard/coordinator/assignments',
       icon: UserCheck,
       color: 'bg-blue-500',
@@ -124,18 +137,17 @@ export default function CoordinatorDashboard() {
   ];
 
   const secondaryActions = [
-    { title: 'Prácticas', description: 'Gestión general', href: '/dashboard/internships', icon: Briefcase, color: 'bg-primary' },
+    { title: 'Prácticas', description: 'Seguimiento de prácticas', href: '/dashboard/internships', icon: Briefcase, color: 'bg-primary' },
     { title: 'Tesis', description: 'Proyectos de tesis', href: '/dashboard/thesis', icon: BookOpen, color: 'bg-purple-500' },
-    { title: 'Estudiantes', description: 'Listado de estudiantes', href: '/dashboard/students', icon: Users, color: 'bg-cyan-500' },
-    { title: 'Empresas', description: 'Empresas registradas', href: '/dashboard/companies', icon: Building2, color: 'bg-pink-500' },
+    { title: 'Empresas', description: 'Empresas y convenios', href: '/dashboard/companies', icon: Building2, color: 'bg-pink-500' },
   ];
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="h-8 w-64 bg-muted rounded animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-32 bg-muted rounded-xl animate-pulse" />
           ))}
         </div>
@@ -166,7 +178,7 @@ export default function CoordinatorDashboard() {
           <AlertCircle className="w-5 h-5 text-amber-500" />
           Acciones Prioritarias
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action) => (
             <Link key={action.title} href={action.href}>
               <motion.div
@@ -217,7 +229,7 @@ export default function CoordinatorDashboard() {
       {/* Secondary Actions */}
       <motion.div variants={itemVariants}>
         <h2 className="text-lg font-semibold text-foreground mb-4">Gestión General</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {secondaryActions.map((action) => (
             <Link key={action.title} href={action.href}>
               <motion.div

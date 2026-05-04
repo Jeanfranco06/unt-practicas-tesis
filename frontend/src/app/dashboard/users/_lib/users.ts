@@ -110,7 +110,9 @@ function transformUser(user: any): User {
 }
 
 export async function getUsers(): Promise<User[]> {
-  const users = await fetchWithAuth(`${API_URL}/api/users`);
+  const response = await fetchWithAuth(`${API_URL}/api/users`);
+  // Backend devuelve un objeto paginado { data: User[], meta: {...} }
+  const users = response.data || response;
   return Array.isArray(users) ? users.map(transformUser) : [];
 }
 

@@ -67,14 +67,64 @@ export default function StudentDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
 
-  // @ts-ignore - TRPC types need regeneration after backend changes
-  const { data: myInternship, isLoading: loadingInternship } = (trpc as any).internships?.getMyInternship?.useQuery() || { data: null, isLoading: false };
-  // @ts-ignore - TRPC types need regeneration after backend changes
-  const { data: thesisProjects, isLoading: loadingThesis } = (trpc as any).thesis?.listProjects?.useQuery() || { data: null, isLoading: false };
+  const [myInternship, setMyInternship] = useState<any>(null);
+  const [myApplications, setMyApplications] = useState<any[]>([]);
+  const [thesisProjects, setThesisProjects] = useState<any[]>([]);
+  const [loadingInternship, setLoadingInternship] = useState(true);
+  const [loadingApplications, setLoadingApplications] = useState(true);
+  const [loadingThesis, setLoadingThesis] = useState(true);
 
   useEffect(() => {
     loadNotifications();
+    loadInternshipData();
+    loadApplicationsData();
+    loadThesisData();
   }, []);
+
+  const loadApplicationsData = async () => {
+    try {
+      setLoadingApplications(true);
+      const data = await fetchWithAuth(`${API_URL}/api/internships/my-applications`);
+      if (data && Array.isArray(data)) {
+        setMyApplications(data);
+      }
+    } catch (err) {
+      console.error('Error cargando postulaciones:', err);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  const loadInternshipData = async () => {
+    try {
+      setLoadingInternship(true);
+      const data = await fetchWithAuth(`${API_URL}/api/internships/my-internship`);
+      if (data && !data.message) {
+        setMyInternship(data);
+      }
+    } catch (err) {
+      console.error('Error cargando práctica:', err);
+    } finally {
+      setLoadingInternship(false);
+    }
+  };
+
+  const loadThesisData = async () => {
+    try {
+      setLoadingThesis(true);
+      // Usar el ID del usuario directamente
+      if (user?.sub) {
+        const data = await fetchWithAuth(`${API_URL}/api/thesis/projects/student/${user.sub}`);
+        if (data && Array.isArray(data)) {
+          setThesisProjects(data);
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando proyectos de tesis:', err);
+    } finally {
+      setLoadingThesis(false);
+    }
+  };
 
   const loadNotifications = async () => {
     try {
@@ -98,7 +148,34 @@ export default function StudentDashboard() {
     type: n.tipo === 'exito' ? 'success' : n.tipo === 'error' ? 'warning' : 'info',
   }));
 
-  // Vencimientos basados en práctica actual
+  // Calculate stats based on real data
+  const horasAcumuladas = myInternship?.seguimiento?.reduce((acc: number, s: any) => acc + (s.horas || 0), 0) || 0;
+  const horasRequeridas = 320;
+  const porcentajeHoras = Math.min(Math.round((horasAcumuladas / horasRequeridas) * 100), 100);
+
+  // Check if internship has started or is in the future
+  const internshipStartDate = myInternship?.fechaInicio || myInternship?.oferta?.fechaInicioPractica;
+  const internshipHasStarted = internshipStartDate ? new Date(internshipStartDate) <= new Date() : false;
+  const daysUntilInternshipStart = internshipStartDate ? 
+    Math.ceil((new Date(internshipStartDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+  
+  // Find the approved application associated with this internship
+  const approvedApplication = myInternship ? 
+    myApplications.find((app: any) => app.id === myInternship.postulacionId) :
+    myApplications.find((app: any) => app.estado === 'aprobado' || app.estado === 'approved');
+  
+  // Check if we should show "starting soon" state
+  const hasFuturePractice = !internshipHasStarted && approvedApplication;
+  
+  console.log('Dashboard state:', { 
+    internshipStartDate, 
+    internshipHasStarted, 
+    daysUntilInternshipStart,
+    hasFuturePractice,
+    approvedApplication 
+  });
+
+  // Vencimientos basados en práctica actual o postulación aprobada
   const upcomingDeadlines: Deadline[] = myInternship?.fechaFinPractica ? [
     {
       id: 1,
@@ -107,21 +184,29 @@ export default function StudentDashboard() {
       daysLeft: Math.max(0, Math.ceil((new Date(myInternship.fechaFinPractica).getTime() - Date.now()) / (1000 * 60 * 60 * 24))),
       priority: 'high',
     },
+  ] : hasFuturePractice ? [
+    {
+      id: 1,
+      title: 'Inicio de práctica',
+      date: new Date(approvedApplication?.oferta?.fechaInicioPractica || internshipStartDate).toLocaleDateString('es-ES'),
+      daysLeft: Math.max(0, daysUntilInternshipStart),
+      priority: daysUntilInternshipStart <= 7 ? 'high' : 'medium',
+    },
   ] : [];
-
-  // Calculate stats based on real data
-  const horasAcumuladas = myInternship?.seguimiento?.reduce((acc: number, s: any) => acc + (s.horas || 0), 0) || 0;
-  const horasRequeridas = 320;
-  const porcentajeHoras = Math.min(Math.round((horasAcumuladas / horasRequeridas) * 100), 100);
 
   const stats: StatCard[] = [
     {
       title: 'Práctica Actual',
-      value: myInternship?.estado ? myInternship.estado.replace('_', ' ') : 'Sin práctica',
-      subtitle: myInternship?.oferta?.titulo ? myInternship.oferta.titulo.substring(0, 30) + '...' : 'No has iniciado una práctica',
+      value: myInternship?.estado && internshipHasStarted ? myInternship.estado.replace('_', ' ') : 
+             hasFuturePractice ? `Por iniciar (${daysUntilInternshipStart} días)` : 'Sin práctica',
+      subtitle: myInternship?.oferta?.titulo ? myInternship.oferta.titulo.substring(0, 30) + '...' : 
+                hasFuturePractice ? `${approvedApplication?.oferta?.titulo?.substring(0, 30)}...` : 'No has iniciado una práctica',
       icon: Briefcase,
-      color: myInternship?.estado === 'en_progreso' ? 'bg-blue-500' : myInternship?.estado === 'completada' ? 'bg-emerald-500' : 'bg-slate-500',
-      trend: myInternship?.estado === 'en_progreso' ? 'Activa' : myInternship?.estado || 'Pendiente',
+      color: myInternship?.estado === 'en_progreso' && internshipHasStarted ? 'bg-blue-500' : 
+             myInternship?.estado === 'completada' ? 'bg-emerald-500' : 
+             hasFuturePractice ? 'bg-amber-500' : 'bg-slate-500',
+      trend: myInternship?.estado === 'en_progreso' && internshipHasStarted ? 'Activa' : 
+             hasFuturePractice ? 'Aprobada' : myInternship?.estado || 'Pendiente',
     },
     {
       title: 'Tesis',
@@ -141,15 +226,15 @@ export default function StudentDashboard() {
     },
     {
       title: 'Documentos',
-      value: '8/12',
+      value: myInternship?.documentosEntregados ? `${myInternship.documentosEntregados}/8` : '0/8',
       subtitle: 'documentos entregados',
       icon: FileText,
-      color: 'bg-purple-500',
-      trend: '66%',
+      color: myInternship?.documentosEntregados >= 6 ? 'bg-emerald-500' : myInternship?.documentosEntregados >= 3 ? 'bg-amber-500' : 'bg-slate-500',
+      trend: myInternship?.documentosEntregados ? `${Math.round((myInternship.documentosEntregados / 8) * 100)}%` : '0%',
     },
   ];
 
-  const isLoading = loadingInternship || loadingThesis;
+  const isLoading = loadingInternship || loadingApplications || loadingThesis;
 
   if (isLoading) {
     return (

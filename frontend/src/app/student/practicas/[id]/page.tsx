@@ -64,7 +64,7 @@ interface Report {
 }
 
 interface Practica {
-  id: number;
+  id: number | string;
   empresa: string;
   cargo: string;
   descripcion: string;
@@ -80,6 +80,9 @@ interface Practica {
   };
   horasRegistradas: HourEntry[];
   informes: Report[];
+  tipo?: 'practica' | 'postulacion';
+  estadoPostulacion?: string;
+  fechaPostulacion?: string;
 }
 
 export default function PracticaDetailPage() {
@@ -112,38 +115,86 @@ export default function PracticaDetailPage() {
   const loadPractica = async () => {
     try {
       setIsLoading(true);
-      
-      const mockData: Practica = {
-        id: Number(params.id),
-        empresa: 'Tech Solutions Perú S.A.C.',
-        cargo: 'Desarrollador Frontend React',
-        descripcion: 'Desarrollo de interfaces de usuario con React y TypeScript. Implementación de componentes reutilizables y optimización de rendimiento.',
-        fechaInicio: '2024-03-01',
-        fechaFin: '2024-08-31',
-        estado: 'activa',
-        horasTotales: 320,
-        horasCompletadas: 240,
-        supervisorEmpresa: 'Ing. Carlos Mendoza',
-        asesorAcademico: {
-          nombre: 'Dr. Juan Pérez García',
-          email: 'jperez@unitru.edu.pe',
-        },
-        horasRegistradas: [
-          { id: 1, fecha: '2024-03-04', horas: 8, actividad: 'Configuración de ambiente', aprobadoEmpresa: true, aprobadoAsesor: true },
-          { id: 2, fecha: '2024-03-05', horas: 8, actividad: 'Desarrollo de componentes', aprobadoEmpresa: true, aprobadoAsesor: true },
-          { id: 3, fecha: '2024-03-06', horas: 8, actividad: 'Integración con API', aprobadoEmpresa: true, aprobadoAsesor: false },
-        ],
-        informes: [
-          { id: 1, tipo: 'parcial', titulo: 'Informe Mensual - Marzo', fechaEntrega: '2024-04-01', estado: 'aprobado' },
-          { id: 2, tipo: 'parcial', titulo: 'Informe Mensual - Abril', fechaEntrega: '2024-05-01', estado: 'aprobado' },
-          { id: 3, tipo: 'final', titulo: 'Informe Final', fechaEntrega: '', estado: 'pendiente' },
-        ],
-      };
-      
-      setTimeout(() => {
-        setPractica(mockData);
-        setIsLoading(false);
-      }, 500);
+      const id = params.id as string;
+
+      // Check if this is an application (app-X) or a real internship
+      if (id.startsWith('app-')) {
+        // Load application data
+        const appId = id.replace('app-', '');
+        const applications = await fetchWithAuth(`${API_URL}/api/internships/my-applications`);
+        const app = applications.find((a: any) => a.id.toString() === appId);
+        
+        if (!app) {
+          setPractica(null);
+          setIsLoading(false);
+          return;
+        }
+
+        // Convert application to practice format
+        const appData: Practica = {
+          id: id,
+          empresa: app.oferta?.empresa?.razonSocial || 'Empresa no especificada',
+          cargo: app.oferta?.titulo || 'Cargo no especificado',
+          descripcion: app.cartaPresentacion || 'Práctica aprobada pendiente de inicio.',
+          fechaInicio: app.oferta?.fechaInicioPractica || '',
+          fechaFin: app.oferta?.fechaFinPractica || '',
+          estado: 'activa',
+          horasTotales: app.oferta?.horasTotalesRequeridas || 320,
+          horasCompletadas: 0,
+          supervisorEmpresa: 'Por asignar',
+          asesorAcademico: undefined,
+          horasRegistradas: [],
+          informes: [],
+          tipo: 'postulacion',
+          estadoPostulacion: app.estado,
+          fechaPostulacion: app.fechaPostulacion,
+        };
+        
+        setPractica(appData);
+      } else {
+        // Load real internship data
+        const data = await fetchWithAuth(`${API_URL}/api/internships/my-internship`);
+        
+        if (data && !data.message) {
+          const practiceData: Practica = {
+            id: data.id,
+            empresa: data.empresa?.razonSocial || data.nombreEmpresaExterna || 'Empresa no especificada',
+            cargo: data.oferta?.titulo || 'Cargo no especificado',
+            descripcion: data.oferta?.descripcion || data.observaciones || '',
+            fechaInicio: data.fechaInicio || data.oferta?.fechaInicioPractica || '',
+            fechaFin: data.fechaFin || data.oferta?.fechaFinPractica || '',
+            estado: data.estado === 'activa' ? 'activa' : data.estado === 'finalizada' ? 'finalizada' : 'en_evaluacion',
+            horasTotales: data.horasTotalesRequeridas || 320,
+            horasCompletadas: data.seguimiento?.reduce((acc: number, s: any) => acc + (s.horas || 0), 0) || 0,
+            supervisorEmpresa: data.asesorEmpresaNombre || 'Por asignar',
+            asesorAcademico: data.asesorAcademico ? {
+              nombre: `${data.asesorAcademico.nombre} ${data.asesorAcademico.apellidoPaterno || ''}`,
+              email: data.asesorAcademico.email || '',
+            } : undefined,
+            horasRegistradas: data.seguimiento?.map((s: any, idx: number) => ({
+              id: s.id || idx,
+              fecha: s.fecha,
+              horas: s.horas,
+              actividad: s.actividad || 'Actividad registrada',
+              aprobadoEmpresa: s.aprobadoEmpresa || false,
+              aprobadoAsesor: s.aprobadoAsesor || false,
+            })) || [],
+            informes: data.informes?.map((r: any, idx: number) => ({
+              id: r.id || idx,
+              tipo: r.tipo === 'final' ? 'final' : 'parcial',
+              titulo: r.titulo || `Informe ${idx + 1}`,
+              fechaEntrega: r.fechaEntrega || r.creadoEn,
+              estado: r.estado || 'pendiente',
+              comentarioAsesor: r.comentarioAsesor,
+            })) || [],
+            tipo: 'practica',
+          };
+          setPractica(practiceData);
+        } else {
+          setPractica(null);
+        }
+      }
+      setIsLoading(false);
     } catch (err: any) {
       toast({
         title: 'Error',
@@ -311,18 +362,40 @@ export default function PracticaDetailPage() {
           </Button>
           <h1 className="text-2xl font-bold text-foreground">{practica.cargo}</h1>
           <p className="text-muted-foreground mt-1">{practica.empresa}</p>
+          {practica.tipo === 'postulacion' && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
+                Postulación Aprobada
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Postuló: {practica.fechaPostulacion ? new Date(practica.fechaPostulacion).toLocaleDateString('es-ES') : ''}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/student/practicas/${params.id}/editar`}>
-              <Edit className="w-4 h-4 mr-2" />
-              Editar
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(true)}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Eliminar
-          </Button>
+          {practica.tipo === 'practica' && (
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/student/practicas/${params.id}/editar`}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(true)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </Button>
+            </>
+          )}
+          {practica.tipo === 'postulacion' && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/student/practicas/postulaciones">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Ver postulaciones
+              </Link>
+            </Button>
+          )}
         </div>
       </motion.div>
 
