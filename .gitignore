@@ -26,3 +26,16 @@ Thumbs.db
 # Misc
 *.log
 .aider*
+
+# Audit and outdated reports
+*-audit.err
+*-audit.json
+*-outdated.err
+*-outdated.json
+
+# Database scripts (temporary)
+reset-db-*.bat
+fix-*.bat
+
+# Test files
+test-login.js
