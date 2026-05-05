@@ -55,15 +55,29 @@ async function bootstrap() {
   const cvUploadsDir = path.join(process.cwd(), 'upload', 'cv');
   
   console.log('📁 Directorio uploads:', uploadsDir);
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('✅ Directorio uploads creado');
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      console.log('✅ Directorio uploads creado');
+    } else {
+      console.log('✅ Directorio uploads ya existe');
+    }
+  } catch (err) {
+    console.warn('⚠️  No se pudo crear directorio uploads:', (err as Error).message);
+    console.log('   (Usando directorio en /tmp)');
   }
   
   console.log('📁 Directorio CV uploads:', cvUploadsDir);
-  if (!fs.existsSync(cvUploadsDir)) {
-    fs.mkdirSync(cvUploadsDir, { recursive: true });
-    console.log('✅ Directorio CV uploads creado');
+  try {
+    if (!fs.existsSync(cvUploadsDir)) {
+      fs.mkdirSync(cvUploadsDir, { recursive: true });
+      console.log('✅ Directorio CV uploads creado');
+    } else {
+      console.log('✅ Directorio CV uploads ya existe');
+    }
+  } catch (err) {
+    console.warn('⚠️  No se pudo crear directorio CV uploads:', (err as Error).message);
+    console.log('   (Usando directorio en /tmp)');
   }
 
   // Servir archivos estáticos desde upload/ (nota: sin la 's' final)

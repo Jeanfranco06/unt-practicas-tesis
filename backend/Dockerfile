@@ -33,6 +33,11 @@ RUN npm ci --only=production && npm cache clean --force
 # Copiar código construido
 COPY --from=builder /app/dist ./dist
 
+# Crear directorios de upload necesarios (antes de cambiar a usuario nodejs)
+RUN mkdir -p /app/upload/convenios /app/upload/cv && \
+    chown -R nodejs:nodejs /app/upload && \
+    chmod -R 755 /app/upload
+
 # Cambiar al usuario no root
 USER nodejs
 

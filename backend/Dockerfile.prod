@@ -66,6 +66,11 @@ COPY --chown=nodejs:nodejs . .
 COPY --chown=nodejs:nodejs entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Crear directorios de upload necesarios (antes de cambiar a usuario nodejs)
+RUN mkdir -p /app/upload/convenios /app/upload/cv && \
+    chown -R nodejs:nodejs /app/upload && \
+    chmod -R 755 /app/upload
+
 # Cambiar al usuario no root
 USER nodejs
 

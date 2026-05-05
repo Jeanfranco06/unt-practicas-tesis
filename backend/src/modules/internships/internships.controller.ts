@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Delete, Param, Query, UseGuards, No
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
+import * as fs from 'fs';
 import { Request } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,9 +21,37 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OfertaEstado } from './entities/internship-offer.entity';
 import { ApplicationEstado } from './entities/internship-application.entity';
 
+// Determinar directorio de almacenamiento - usar /app/upload si existe, sino /tmp
+const getStorageDir = (subdir: string): string => {
+  const primaryDir = path.join(process.cwd(), 'upload', subdir);
+  const fallbackDir = path.join('/tmp', 'upload', subdir);
+  
+  // Si el directorio principal es escribible, usarlo
+  try {
+    if (fs.existsSync(path.dirname(primaryDir))) {
+      const testFile = path.join(primaryDir, '.test');
+      fs.writeFileSync(testFile, '');
+      fs.unlinkSync(testFile);
+      return primaryDir;
+    }
+  } catch (err) {
+    console.warn(`⚠️  No se pudo escribir en ${primaryDir}, usando fallback`);
+  }
+  
+  // Usar fallback
+  try {
+    if (!fs.existsSync(fallbackDir)) {
+      fs.mkdirSync(fallbackDir, { recursive: true });
+    }
+  } catch (err) {
+    console.error('Error creando directorio fallback:', err);
+  }
+  return fallbackDir;
+};
+
 // Configuración de almacenamiento en disco para Multer - CV files
 const cvMulterStorage = diskStorage({
-  destination: path.join(process.cwd(), 'upload', 'cv'),
+  destination: getStorageDir('cv'),
   filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const sanitizedName = file.originalname
