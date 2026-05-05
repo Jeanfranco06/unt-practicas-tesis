@@ -26,13 +26,8 @@ ENV NODE_ENV=$NODE_ENV
 # Crear usuario no root
 RUN addgroup -g 1001 nodejs && adduser -D -u 1001 -G nodejs nodejs
 
-# Instalar curl y netcat (para health checks y esperar servicios)
-RUN apk add --no-cache curl netcat-openbsd
-
-# Descargar Cloud SQL Auth Proxy
-RUN curl -o /cloud-sql-proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 && \
-    chmod +x /cloud-sql-proxy && \
-    echo "Cloud SQL Proxy descargado exitosamente"
+# Instalar curl para health checks
+RUN apk add --no-cache curl
 
 # Copiar package files
 COPY package*.json ./
