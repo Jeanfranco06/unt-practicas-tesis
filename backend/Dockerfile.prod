@@ -1,20 +1,10 @@
 # Etapa de construcción
-FROM node:18-slim AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
 ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
-
-# Instalar build essentials para módulos nativos
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Descargar Cloud SQL Auth Proxy
-RUN curl -o /cloud-sql-proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 && \
-    chmod +x /cloud-sql-proxy && \
-    echo "Cloud SQL Proxy descargado exitosamente"
 
 # Copiar package files
 COPY package*.json ./
@@ -32,7 +22,7 @@ COPY . .
 RUN npm run build
 
 # Etapa de producción
-FROM node:18-slim AS production
+FROM node:18-alpine AS production
 
 WORKDIR /app
 
@@ -40,21 +30,21 @@ ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
 
 # Crear usuario no root
-RUN groupadd -g 1001 nodejs && useradd -r -u 1001 -g nodejs nodejs
+RUN addgroup -g 1001 nodejs && adduser -D -u 1001 -G nodejs nodejs
 
-# Instalar dumb-init para manejo de señales
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init curl \
-    && rm -rf /var/lib/apt/lists/*
+# Instalar curl y netcat (para health checks y esperar servicios)
+RUN apk add --no-cache curl netcat-openbsd
 
-# Copiar Cloud SQL Proxy desde builder
-COPY --from=builder /cloud-sql-proxy /cloud-sql-proxy
+# Descargar Cloud SQL Auth Proxy
+RUN curl -o /cloud-sql-proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 && \
+    chmod +x /cloud-sql-proxy && \
+    echo "Cloud SQL Proxy descargado exitosamente"
 
 # Copiar package files
 COPY package*.json ./
 
 # Instalar solo dependencias de producción
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Copiar código construido
 COPY --from=builder /app/dist ./dist
@@ -62,20 +52,27 @@ COPY --from=builder /app/dist ./dist
 # Copiar otros archivos necesarios
 COPY --chown=nodejs:nodejs . .
 
-# Copiar entrypoint script
-COPY --chown=nodejs:nodejs entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Copiar Cloud SQL Proxy
+COPY --from=builder /cloud-sql-proxy /cloud-sql-proxy
 
-# Crear directorios de upload necesarios (antes de cambiar a usuario nodejs)
+# Crear directorios de upload necesarios
 RUN mkdir -p /app/upload/convenios /app/upload/cv && \
     chown -R nodejs:nodejs /app/upload && \
     chmod -R 755 /app/upload
+
+# Copiar entrypoint script
+COPY --chown=nodejs:nodejs entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Cambiar al usuario no root
 USER nodejs
 
 # Exponer puerto
 EXPOSE 8080
+
+# Health check - crítico para Cloud Run
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
 
 # Usar entrypoint script que maneja Cloud SQL Proxy
 ENTRYPOINT ["/entrypoint.sh"]
