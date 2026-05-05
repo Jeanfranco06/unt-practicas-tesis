@@ -82,7 +82,6 @@ images:
 # Sustituciones (variables configurables)
 substitutions:
   _NEXT_PUBLIC_API_URL: "https://api.yourdomain.com"
-  _GCR_REGION: "us-central1"
 
 # Timeouts
 timeout: "3600s"
