@@ -10,7 +10,7 @@ ENV NODE_ENV=$NODE_ENV
 COPY package*.json ./
 
 # Instalar dependencias para construcción (incluyendo devDependencies para @nestjs/cli)
-RUN npm ci --unsafe-perm
+RUN npm install --unsafe-perm
 
 # Copiar código fuente
 COPY . .
