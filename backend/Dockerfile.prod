@@ -43,20 +43,14 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copiar código construido
 COPY --from=builder /app/dist ./dist
 
-# Copiar otros archivos necesarios
-COPY --chown=nodejs:nodejs . .
+# Copiar archivos necesarios y dar permisos
+COPY package*.json ./
+COPY entrypoint.sh /entrypoint.sh
 
-# Copiar Cloud SQL Proxy
-COPY --from=builder /cloud-sql-proxy /cloud-sql-proxy
-
-# Crear directorios de upload necesarios
-RUN mkdir -p /app/upload/convenios /app/upload/cv && \
-    chown -R nodejs:nodejs /app/upload && \
+RUN chmod +x /entrypoint.sh && \
+    mkdir -p /app/upload/convenios /app/upload/cv && \
+    chown -R nodejs:nodejs /app /entrypoint.sh && \
     chmod -R 755 /app/upload
-
-# Copiar entrypoint script
-COPY --chown=nodejs:nodejs entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 # Cambiar al usuario no root
 USER nodejs
