@@ -45,10 +45,8 @@ wait_for_server() {
 if [ ! -z "$CLOUD_SQL_INSTANCE" ]; then
     echo "🔗 Starting Cloud SQL Proxy for: $CLOUD_SQL_INSTANCE"
     
-    # Iniciar proxy en background
-    /cloud-sql-proxy \
-        -ip_address_types=PRIVATE \
-        "$CLOUD_SQL_INSTANCE" &
+    # Iniciar proxy en background (sin flags de IP que no existen en versiones antiguas)
+    /cloud-sql-proxy "$CLOUD_SQL_INSTANCE" &
     
     PROXY_PID=$!
     echo "✓ Cloud SQL Proxy started (PID: $PROXY_PID)"
