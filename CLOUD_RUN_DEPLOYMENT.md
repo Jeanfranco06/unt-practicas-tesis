@@ -45,7 +45,6 @@ gcloud run deploy unt-backend-prod \
   --memory 1Gi \
   --timeout 600 \
   --set-env-vars "NODE_ENV=production,\
-PORT=8080,\
 BACKEND_PORT=8080,\
 DB_HOST=127.0.0.1,\
 DB_PORT=5432,\

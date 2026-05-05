@@ -86,9 +86,9 @@ if (-not $SkipDeploy) {
     Write-Info "Región: $Region"
     
     # Construir vars de entorno como string
+    # NOTA: PORT es establecido automáticamente por Cloud Run (no incluir)
     $EnvVars = @(
         "NODE_ENV=production",
-        "PORT=8080",
         "BACKEND_PORT=8080",
         "DB_HOST=127.0.0.1",
         "DB_PORT=5432",
