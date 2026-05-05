@@ -1,5 +1,5 @@
-# Cloud Build Configuration para Google Cloud Run
-# Este archivo permite que Google Cloud Build construya y despliegue automáticamente
+# Cloud Build Configuration para Google Cloud Run Backend
+# Construye la imagen del backend usando Dockerfile.prod y la pushea a GCR
 
 steps:
   # Paso 1: Build Backend image
@@ -8,89 +8,38 @@ steps:
     args:
       - "build"
       - "-t"
-      - "gcr.io/$PROJECT_ID/unt-backend-prod:$SHORT_SHA"
+      - "gcr.io/${PROJECT_ID}/unt-backend-prod:${SHORT_SHA}"
       - "-t"
-      - "gcr.io/$PROJECT_ID/unt-backend-prod:latest"
+      - "gcr.io/${PROJECT_ID}/unt-backend-prod:prod"
       - "-f"
       - "backend/Dockerfile.prod"
       - "--build-arg"
       - "NODE_ENV=production"
       - "./backend"
 
-  # Paso 2: Build Frontend image
-  - name: "gcr.io/cloud-builders/docker"
-    id: "build-frontend"
-    args:
-      - "build"
-      - "-t"
-      - "gcr.io/$PROJECT_ID/unt-frontend-prod:$SHORT_SHA"
-      - "-t"
-      - "gcr.io/$PROJECT_ID/unt-frontend-prod:latest"
-      - "-f"
-      - "frontend/Dockerfile.prod"
-      - "--build-arg"
-      - "NODE_ENV=production"
-      - "--build-arg"
-      - "NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}"
-      - "./frontend"
-
   # Paso 3: Push Backend to GCR
   - name: "gcr.io/cloud-builders/docker"
     id: "push-backend"
     args:
       - "push"
-      - "gcr.io/$PROJECT_ID/unt-backend-prod:$SHORT_SHA"
-
-  # Paso 4: Push Frontend to GCR
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-frontend"
-    args:
-      - "push"
-      - "gcr.io/$PROJECT_ID/unt-frontend-prod:$SHORT_SHA"
-
-  # Paso 5: Deploy Backend to Cloud Run
-  - name: "gcr.io/cloud-builders/gke-deploy"
-    id: "deploy-backend"
-    args:
-      - run
-      - --filename=
-      - --image=gcr.io/$PROJECT_ID/unt-backend-prod:$SHORT_SHA
-      - --location=us-central1
-      - --cluster=
-    env:
-      - "CLOUDSDK_COMPUTE_REGION=us-central1"
-
-  # Paso 6: Deploy Frontend to Cloud Run
-  - name: "gcr.io/cloud-builders/gke-deploy"
-    id: "deploy-frontend"
-    args:
-      - run
-      - --filename=
-      - --image=gcr.io/$PROJECT_ID/unt-frontend-prod:$SHORT_SHA
-      - --location=us-central1
-      - --cluster=
-    env:
-      - "CLOUDSDK_COMPUTE_REGION=us-central1"
+      - "gcr.io/${PROJECT_ID}/unt-backend-prod:${SHORT_SHA}"
 
 # Imágenes construidas (para Cache)
 images:
-  - "gcr.io/$PROJECT_ID/unt-backend-prod:$SHORT_SHA"
-  - "gcr.io/$PROJECT_ID/unt-backend-prod:latest"
-  - "gcr.io/$PROJECT_ID/unt-frontend-prod:$SHORT_SHA"
-  - "gcr.io/$PROJECT_ID/unt-frontend-prod:latest"
+  - "gcr.io/${PROJECT_ID}/unt-backend-prod:${SHORT_SHA}"
+  - "gcr.io/${PROJECT_ID}/unt-backend-prod:prod"
 
 # Sustituciones (variables configurables)
-substitutions:
-  _NEXT_PUBLIC_API_URL: "https://api.yourdomain.com"
+substitutions: {}
 
 # Timeouts
-timeout: "3600s"
+timeout: "1800s"
 
 # Opciones de logs
 logsBucket: "gs://${PROJECT_ID}_cloudbuild"
 
 # Tags para Cloud Build
 tags:
-  - "unt-practicas-tesis"
+  - "unt-backend-prod"
   - "cloud-run"
   - "${SHORT_SHA}"
