@@ -10,7 +10,7 @@ ENV NODE_ENV=$NODE_ENV
 COPY package*.json ./
 
 # Instalar dependencias para construcción
-RUN npm ci --unsafe-perm
+RUN npm install --unsafe-perm
 
 # Auditar y arreglar vulnerabilidades (non-breaking changes)
 RUN npm audit fix || true
@@ -44,7 +44,7 @@ RUN curl -o /cloud-sql-proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linu
 COPY package*.json ./
 
 # Instalar solo dependencias de producción
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copiar código construido
 COPY --from=builder /app/dist ./dist
