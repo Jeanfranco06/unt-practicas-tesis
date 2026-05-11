@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 import { ArrowLeft, Loader } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +16,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      message = errorData.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
 
 interface Career {
   id: number;
@@ -40,23 +64,37 @@ export default function EditCareerPage() {
   const [formData, setFormData] = useState<Career | null>(null);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const careerId = Number(params.id);
-  const careerQuery = trpc.academic.careers.getById.useQuery({ id: careerId });
-  const facultiesQuery = trpc.academic.faculties.list.useQuery();
-  const updateMutation = trpc.academic.careers.update.useMutation();
 
   useEffect(() => {
-    if (careerQuery.data) {
-      setFormData(careerQuery.data as Career);
-    }
-  }, [careerQuery.data]);
+    const loadData = async () => {
+      try {
+        setDataLoading(true);
+        const [careerData, facultiesData] = await Promise.all([
+          fetchWithAuth(`/api/academic/careers/${careerId}`),
+          fetchWithAuth('/api/academic/faculties'),
+        ]);
+        setFormData(careerData);
+        setFaculties(facultiesData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al cargar datos');
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar los datos',
+          variant: 'destructive',
+        });
+      } finally {
+        setDataLoading(false);
+      }
+    };
 
-  useEffect(() => {
-    if (facultiesQuery.data) {
-      setFaculties(facultiesQuery.data as Faculty[]);
+    if (careerId) {
+      loadData();
     }
-  }, [facultiesQuery.data]);
+  }, [careerId, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,27 +110,26 @@ export default function EditCareerPage() {
 
     setLoading(true);
     try {
-      await updateMutation.mutateAsync({
-        id: careerId,
-        data: {
+      await fetchWithAuth(`/api/academic/careers/${careerId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
           facultadId: formData.facultadId,
           nombre: formData.nombre,
           codigo: formData.codigo,
           descripcion: formData.descripcion || undefined,
-        },
+        }),
       });
 
       toast({
         title: 'Éxito',
         description: 'Carrera actualizada correctamente',
-        duration: 3000,
       });
 
       router.push('/dashboard/academic/careers');
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo actualizar la carrera',
+        description: error instanceof Error ? error.message : 'No se pudo actualizar la carrera',
         variant: 'destructive',
       });
     } finally {
@@ -100,7 +137,7 @@ export default function EditCareerPage() {
     }
   };
 
-  if (careerQuery.isLoading || facultiesQuery.isLoading || !formData) {
+  if (dataLoading || !formData) {
     return (
       <div className="p-6 flex items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -111,11 +148,11 @@ export default function EditCareerPage() {
     );
   }
 
-  if (careerQuery.error) {
+  if (error) {
     return (
       <div className="p-6 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 font-medium">Error al cargar la carrera</p>
+          <p className="text-red-600 font-medium">{error}</p>
           <Link href="/dashboard/academic/careers">
             <Button variant="outline" className="mt-4">
               Volver a carreras
@@ -147,12 +184,11 @@ export default function EditCareerPage() {
       <form onSubmit={handleSubmit} className="space-y-6 bg-card border border-border rounded-lg p-6">
         <div className="space-y-2">
           <Label htmlFor="facultad">Facultad *</Label>
-          <Select 
-            value={String(formData.facultadId)} 
+          <Select
+            value={String(formData.facultadId)}
             onValueChange={(value) => setFormData({ ...formData, facultadId: Number(value) })}
-            disabled={loading}
           >
-            <SelectTrigger id="facultad">
+            <SelectTrigger>
               <SelectValue placeholder="Selecciona una facultad" />
             </SelectTrigger>
             <SelectContent>

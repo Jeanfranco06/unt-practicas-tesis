@@ -11,8 +11,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { trpc } from '@/lib/trpc/react';
 import { getUserRole, getDashboardRouteByRole } from '@/lib/jwt';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'El correo es requerido').email('Correo inválido'),
@@ -26,36 +27,53 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
+interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  empresaId?: number;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', contrasena: '' },
   });
 
-  const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: (data: any) => {
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      document.cookie = `accessToken=${data.accessToken}; path=/`;
-      if (data.empresaId) {
-        localStorage.setItem('empresaId', data.empresaId.toString());
+  const onSubmit = async (data: LoginInput) => {
+    setLoginError(null);
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Credenciales inválidas');
       }
-      const role = getUserRole(data.accessToken);
+
+      const responseData: LoginResponse = await res.json();
+      localStorage.setItem('accessToken', responseData.accessToken);
+      localStorage.setItem('refreshToken', responseData.refreshToken);
+      document.cookie = `accessToken=${responseData.accessToken}; path=/`;
+      if (responseData.empresaId) {
+        localStorage.setItem('empresaId', responseData.empresaId.toString());
+      }
+      const role = getUserRole(responseData.accessToken);
       const dashboardRoute = getDashboardRouteByRole(role);
       router.push(dashboardRoute);
-    },
-    onError: (error: any) => {
+    } catch (error: any) {
       setLoginError(error.message || 'Credenciales inválidas');
-    },
-  });
-
-  const onSubmit = (data: LoginInput) => {
-    setLoginError(null);
-    loginMutation.mutate(data);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -140,11 +158,11 @@ export function LoginForm() {
         <motion.div variants={itemVariants} initial="hidden" animate="visible" transition={{ delay: 0.2 }}>
           <Button
             type="submit"
-            loading={loginMutation.isLoading}
+            disabled={isLoading}
             className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 lg:bg-emerald-600 lg:hover:bg-emerald-500 text-slate-950 lg:text-white font-semibold rounded-lg transition-colors"
           >
             <span className="flex items-center gap-2">
-              {loginMutation.isLoading ? 'Iniciando sesión...' : (
+              {isLoading ? 'Iniciando sesión...' : (
                 <>
                   Iniciar sesión
                   <ArrowRight className="w-4 h-4" />

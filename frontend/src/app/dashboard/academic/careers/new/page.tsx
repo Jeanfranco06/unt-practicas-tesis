@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 import { ArrowLeft, Loader } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +16,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      message = errorData.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
 
 interface Faculty {
   id: number;
@@ -35,23 +59,34 @@ export default function NewCareerPage() {
   });
   const [loading, setLoading] = useState(false);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
-
-  const facultiesQuery = trpc.academic.faculties.list.useQuery();
-  const createMutation = trpc.academic.careers.create.useMutation();
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    if (facultiesQuery.data) {
-      setFaculties(facultiesQuery.data as Faculty[]);
-      // Set the first faculty as default
-      if (facultiesQuery.data.length > 0) {
-        setFormData(prev => ({ ...prev, facultadId: String((facultiesQuery.data as Faculty[])[0].id) }));
+    const loadFaculties = async () => {
+      try {
+        setDataLoading(true);
+        const data = await fetchWithAuth('/api/academic/faculties');
+        setFaculties(data);
+        if (data.length > 0) {
+          setFormData(prev => ({ ...prev, facultadId: String(data[0].id) }));
+        }
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar las facultades',
+          variant: 'destructive',
+        });
+      } finally {
+        setDataLoading(false);
       }
-    }
-  }, [facultiesQuery.data]);
+    };
+
+    loadFaculties();
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.facultadId || !formData.nombre.trim() || !formData.codigo.trim()) {
       toast({
         title: 'Error de validación',
@@ -63,25 +98,27 @@ export default function NewCareerPage() {
 
     setLoading(true);
     try {
-      await createMutation.mutateAsync({
-        facultadId: Number(formData.facultadId),
-        nombre: formData.nombre,
-        codigo: formData.codigo,
-        descripcion: formData.descripcion || undefined,
-        activo: true,
+      await fetchWithAuth('/api/academic/careers', {
+        method: 'POST',
+        body: JSON.stringify({
+          facultadId: Number(formData.facultadId),
+          nombre: formData.nombre,
+          codigo: formData.codigo,
+          descripcion: formData.descripcion || undefined,
+          activo: true,
+        }),
       });
 
       toast({
         title: 'Éxito',
         description: 'Carrera creada correctamente',
-        duration: 3000,
       });
 
       router.push('/dashboard/academic/careers');
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo crear la carrera',
+        description: error instanceof Error ? error.message : 'No se pudo crear la carrera',
         variant: 'destructive',
       });
     } finally {
@@ -89,7 +126,7 @@ export default function NewCareerPage() {
     }
   };
 
-  if (facultiesQuery.isLoading) {
+  if (dataLoading) {
     return (
       <div className="p-6 flex items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -135,12 +172,11 @@ export default function NewCareerPage() {
       <form onSubmit={handleSubmit} className="space-y-6 bg-card border border-border rounded-lg p-6">
         <div className="space-y-2">
           <Label htmlFor="facultad">Facultad *</Label>
-          <Select 
-            value={formData.facultadId} 
+          <Select
+            value={formData.facultadId}
             onValueChange={(value) => setFormData({ ...formData, facultadId: value })}
-            disabled={loading}
           >
-            <SelectTrigger id="facultad">
+            <SelectTrigger>
               <SelectValue placeholder="Selecciona una facultad" />
             </SelectTrigger>
             <SelectContent>

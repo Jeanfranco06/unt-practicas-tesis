@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Plus, Search, Edit, Trash2, Eye, MoreHorizontal, AlertCircle, X, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,31 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      message = errorData.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
 
 interface Faculty {
   id: number;
@@ -44,17 +68,33 @@ export default function FacultiesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-  const facultiesQuery = trpc.academic.faculties.list.useQuery();
-  const deactivateMutation = trpc.academic.faculties.deactivate.useMutation();
+  const [deactivating, setDeactivating] = useState(false);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (facultiesQuery.data) {
-      setFaculties(facultiesQuery.data as Faculty[]);
-      setFilteredFaculties(facultiesQuery.data as Faculty[]);
-      setLoading(false);
-    }
-  }, [facultiesQuery.data]);
+    if (loadedRef.current) return; // Evitar múltiples ejecuciones
+    loadedRef.current = true;
+
+    const loadFaculties = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchWithAuth('/api/academic/faculties');
+        setFaculties(data);
+        setFilteredFaculties(data);
+      } catch (err) {
+        console.error('Error loading faculties:', err);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar las facultades',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFaculties();
+  }, [toast]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase();
@@ -74,12 +114,14 @@ export default function FacultiesPage() {
 
   const handleDeleteConfirm = async () => {
     if (!selectedFaculty) return;
+    setDeactivating(true);
     try {
-      await deactivateMutation.mutateAsync({ id: selectedFaculty.id });
+      await fetchWithAuth(`/api/academic/faculties/${selectedFaculty.id}/deactivate`, {
+        method: 'PATCH',
+      });
       toast({
         title: 'Éxito',
         description: 'Facultad desactivada correctamente',
-        duration: 3000,
       });
       setFaculties(faculties.filter(f => f.id !== selectedFaculty.id));
       setFilteredFaculties(filteredFaculties.filter(f => f.id !== selectedFaculty.id));
@@ -88,9 +130,11 @@ export default function FacultiesPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo desactivar la facultad',
+        description: error instanceof Error ? error.message : 'No se pudo desactivar la facultad',
         variant: 'destructive',
       });
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -218,9 +262,9 @@ export default function FacultiesPage() {
               <Button
                 variant="destructive"
                 onClick={handleDeleteConfirm}
-                disabled={deactivateMutation.isPending}
+                disabled={deactivating}
               >
-                {deactivateMutation.isPending ? 'Desactivando...' : 'Desactivar'}
+                {deactivating ? 'Desactivando...' : 'Desactivar'}
               </Button>
             </div>
           </div>

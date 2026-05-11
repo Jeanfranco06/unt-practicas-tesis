@@ -102,7 +102,7 @@ export default function StudentsPage() {
   };
 
   const filteredStudents = students.filter((student) => {
-    const fullName = `${student.usuario?.nombre || ''} ${student.usuario?.apellido || ''}`.toLowerCase();
+    const fullName = `${student.usuario?.nombre || ''} ${student.usuario?.apellidoPaterno || ''} ${student.usuario?.apellidoMaterno || ''}`.toLowerCase();
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
       fullName.includes(searchLower) ||
@@ -218,7 +218,7 @@ export default function StudentsPage() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-foreground">
-                      {student.usuario?.nombre} {student.usuario?.apellido}
+                      {student.usuario?.nombre} {student.usuario?.apellidoPaterno} {student.usuario?.apellidoMaterno}
                     </h3>
                     <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                       <BookOpen className="w-4 h-4" />
@@ -270,7 +270,7 @@ export default function StudentsPage() {
                       </Link>
                       <button
                         onClick={() =>
-                          showDeleteConfirm(student.id, `${student.usuario?.nombre} ${student.usuario?.apellido}`)
+                          showDeleteConfirm(student.id, `${student.usuario?.nombre} ${student.usuario?.apellidoPaterno} ${student.usuario?.apellidoMaterno}`)
                         }
                         className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-muted flex items-center gap-2"
                       >

@@ -12,7 +12,7 @@ export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
   @Get()
-  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.SECRETARIA)
   findAll(@Query('incluirInactivos') incluirInactivos?: string) {
     return this.studentsService.findAll(incluirInactivos === 'true');
   }

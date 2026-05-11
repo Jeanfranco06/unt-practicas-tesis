@@ -21,6 +21,9 @@ import {
   Bell,
   School,
   Layers,
+  CreditCard,
+  Wallet,
+  Building,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -70,6 +73,12 @@ const navSectionsByRole: Record<UserRole, NavSection[]> = {
         { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
       ],
     },
+    {
+      label: 'Finanzas',
+      items: [
+        { href: '/dashboard/payments', label: 'Pagos', icon: CreditCard },
+      ],
+    },
   ],
   Coordinador: [
     {
@@ -98,6 +107,40 @@ const navSectionsByRole: Record<UserRole, NavSection[]> = {
       label: 'Reportes',
       items: [
         { href: '/dashboard/reports', label: 'Reportes', icon: FileText },
+      ],
+    },
+    {
+      label: 'Finanzas',
+      items: [
+        { href: '/dashboard/payments', label: 'Pagos', icon: CreditCard },
+      ],
+    },
+  ],
+  Secretaria: [
+    {
+      items: [
+        { href: '/dashboard/secretary', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Finanzas',
+      items: [
+        { href: '/dashboard/payments', label: 'Gestión de Pagos', icon: CreditCard },
+        { href: '/dashboard/payments/concepts', label: 'Conceptos de Pago', icon: Wallet },
+      ],
+    },
+    {
+      label: 'Gestión Académica',
+      items: [
+        { href: '/dashboard/students', label: 'Estudiantes', icon: GraduationCap },
+        { href: '/dashboard/internships', label: 'Prácticas Pre-Profesionales', icon: Briefcase },
+        { href: '/dashboard/thesis', label: 'Tesis', icon: BookOpen },
+      ],
+    },
+    {
+      label: 'Comunicación',
+      items: [
+        { href: '/dashboard/notifications', label: 'Notificaciones', icon: Bell },
       ],
     },
   ],
@@ -218,9 +261,17 @@ export function AdminSidebar() {
             href="/dashboard"
             className="flex items-center gap-3 overflow-hidden flex-1 justify-center lg:justify-start"
           >
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg",
+              role === 'Administrador' && "bg-gradient-to-br from-primary to-emerald-400 shadow-primary/25",
+              role === 'Secretaria' && "bg-gradient-to-br from-blue-500 to-indigo-500 shadow-blue-500/25",
+              role === 'Coordinador' && "bg-gradient-to-br from-purple-500 to-pink-500 shadow-purple-500/25",
+              (!role || role === 'Asesor') && "bg-gradient-to-br from-primary to-emerald-400 shadow-primary/25"
+            )}>
               {role === 'Administrador' ? (
                 <Shield className="w-6 h-6 text-white" />
+              ) : role === 'Secretaria' ? (
+                <Building className="w-6 h-6 text-white" />
               ) : (
                 <GraduationCap className="w-6 h-6 text-white" />
               )}
@@ -233,7 +284,7 @@ export function AdminSidebar() {
                   exit={{ opacity: 0, x: -10 }}
                   className="font-bold text-sidebar-foreground text-lg whitespace-nowrap overflow-hidden"
                 >
-                  {role === 'Administrador' ? 'UNT Admin' : 'UNT Sistema'}
+                  {role === 'Administrador' ? 'UNT Admin' : role === 'Secretaria' ? 'UNT Secretaría' : 'UNT Sistema'}
                 </motion.span>
               )}
             </AnimatePresence>

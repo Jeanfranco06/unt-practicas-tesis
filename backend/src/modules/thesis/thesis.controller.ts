@@ -22,7 +22,7 @@ export class ThesisController {
 
   // Proyectos
   @Get('projects')
-  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ASESOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ASESOR, RolUsuario.SECRETARIA)
   async findAllProjects(
     @Query('incluirInactivos') incluirInactivos?: string,
     @CurrentUser() user?: any,

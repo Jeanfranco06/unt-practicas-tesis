@@ -1,4 +1,4 @@
-export type UserRole = 'Administrador' | 'Coordinador' | 'Asesor' | 'Estudiante' | 'RepresentanteEmpresa';
+export type UserRole = 'Administrador' | 'Coordinador' | 'Asesor' | 'Estudiante' | 'RepresentanteEmpresa' | 'Secretaria';
 
 export interface JWTPayload {
   sub: number;
@@ -57,6 +57,10 @@ export function getDashboardRouteByRoles(roles: UserRole[] | null): string {
     return '/dashboard/advisor';
   }
 
+  if (roles.includes('Secretaria')) {
+    return '/dashboard/secretary';
+  }
+
   if (roles.includes('RepresentanteEmpresa')) {
     return '/dashboard/company';
   }
@@ -82,8 +86,9 @@ export function getPrimaryRole(roles: UserRole[] | null): UserRole | null {
   // Priority order for primary role selection
   const priorityOrder: UserRole[] = [
     'Administrador',
-    'Coordinador', 
+    'Coordinador',
     'Asesor',
+    'Secretaria',
     'RepresentanteEmpresa',
     'Estudiante'
   ];

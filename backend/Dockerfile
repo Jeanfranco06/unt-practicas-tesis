@@ -20,6 +20,15 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
+# Instalar Chromium y sus dependencias
+RUN apk add --no-cache \
+    chromium \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-dejavu \
+    ttf-liberation
+
 # Crear usuario no root
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
@@ -40,6 +49,10 @@ RUN mkdir -p /app/upload/convenios /app/upload/cv && \
 
 # Cambiar al usuario no root
 USER nodejs
+
+# Configurar Puppeteer para usar Chromium del sistema
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Exponer puerto
 EXPOSE 3000

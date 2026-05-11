@@ -107,7 +107,7 @@ export default function StudentDetailPage() {
         <div className="space-y-6">
           <div>
             <h2 className="text-xl font-semibold text-foreground">
-              {student.usuario?.nombre} {student.usuario?.apellido}
+              {student.usuario?.nombre} {student.usuario?.apellidoPaterno} {student.usuario?.apellidoMaterno}
             </h2>
             <div className="flex items-center gap-2 mt-2 text-muted-foreground">
               <Mail className="w-4 h-4" />
@@ -194,7 +194,7 @@ export default function StudentDetailPage() {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-foreground">Eliminar estudiante</h3>
                   <p className="text-muted-foreground text-sm mt-2">
-                    ¿Estás seguro de que deseas eliminar al estudiante "{student?.usuario?.nombre} {student?.usuario?.apellido}"? Esta acción no se puede deshacer.
+                    ¿Estás seguro de que deseas eliminar al estudiante "{student?.usuario?.nombre} {student?.usuario?.apellidoPaterno} {student?.usuario?.apellidoMaterno}"? Esta acción no se puede deshacer.
                   </p>
                 </div>
               </div>

@@ -104,8 +104,9 @@ export class UsersService {
       [RoleName.ADMIN]: 0,
       [RoleName.COORDINADOR]: 1,  // Coordinador tiene mayor prioridad que Asesor
       [RoleName.ASESOR]: 2,
-      [RoleName.ESTUDIANTE]: 3,
-      [RoleName.REPRESENTANTE_EMPRESA]: 4,
+      [RoleName.SECRETARIA]: 3,
+      [RoleName.ESTUDIANTE]: 4,
+      [RoleName.REPRESENTANTE_EMPRESA]: 5,
     };
 
     // Ordenar roles por prioridad y retornar el primero

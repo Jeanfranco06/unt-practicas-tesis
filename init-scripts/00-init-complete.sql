@@ -14,8 +14,8 @@ CREATE DATABASE unt_practicas_tesis
     WITH 
     OWNER = postgres
     ENCODING = 'UTF8'
-    LC_COLLATE = 'Spanish_Spain.1252'
-    LC_CTYPE = 'Spanish_Spain.1252'
+    LC_COLLATE = 'en_US.UTF-8'
+    LC_CTYPE = 'en_US.UTF-8'
     TEMPLATE = template0
     TABLESPACE = pg_default
     CONNECTION LIMIT = -1;
@@ -24,7 +24,6 @@ CREATE DATABASE unt_practicas_tesis
 \c unt_practicas_tesis
 
 SET client_encoding = 'UTF8';
-SET server_encoding = 'UTF8';
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -32,7 +31,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ENUMS (tipos enumerados)
 -- =====================================================
 
-CREATE TYPE rol_usuario AS ENUM ('Administrador', 'Coordinador', 'Asesor', 'Estudiante', 'RepresentanteEmpresa');
+CREATE TYPE rol_usuario AS ENUM ('Administrador', 'Coordinador', 'Asesor', 'Estudiante', 'RepresentanteEmpresa', 'Secretaria');
 CREATE TYPE tipo_convenio AS ENUM ('marco', 'especifico');
 CREATE TYPE estado_convenio AS ENUM ('vigente', 'vencido', 'renovado');
 CREATE TYPE estado_oferta AS ENUM ('borrador', 'publicada', 'cerrada', 'cancelada');
@@ -574,6 +573,170 @@ BEGIN
     RETURN lower(codigo_universitario) || '@estudiante.unt.edu.pe';
 END;
 $$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- ENUMS PARA PAGOS
+-- =====================================================
+CREATE TYPE tipo_pago AS ENUM ('matricula', 'tramite', 'constancia', 'certificado', 'otro');
+CREATE TYPE estado_pago AS ENUM ('pendiente', 'procesando', 'completado', 'rechazado', 'reembolsado', 'cancelado');
+CREATE TYPE metodo_pago AS ENUM ('efectivo', 'deposito', 'transferencia', 'tarjeta', 'yape', 'plin', 'otro');
+
+-- =====================================================
+-- TABLAS DE PAGOS
+-- =====================================================
+
+-- Tabla: Conceptos de Pago (tarifas configurables)
+CREATE TABLE concepto_pago (
+    id SERIAL PRIMARY KEY,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(200) NOT NULL,
+    descripcion TEXT,
+    tipo tipo_pago NOT NULL,
+    monto NUMERIC(10,2) NOT NULL,
+    carrera_id INTEGER,
+    activo BOOLEAN DEFAULT true,
+    requiere_aprobacion BOOLEAN DEFAULT false,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_concepto_carrera FOREIGN KEY (carrera_id) REFERENCES carrera(id) ON DELETE SET NULL,
+    CONSTRAINT chk_monto_concepto CHECK (monto >= 0)
+);
+
+COMMENT ON TABLE concepto_pago IS 'Conceptos de pago configurables por la universidad (matriculas, tramites, constancias, etc.)';
+
+-- Tabla: Pagos (registro principal)
+CREATE TABLE pago (
+    id SERIAL PRIMARY KEY,
+    codigo_pago VARCHAR(30) NOT NULL UNIQUE,
+    estudiante_id INTEGER NOT NULL,
+    concepto_id INTEGER NOT NULL,
+    monto NUMERIC(10,2) NOT NULL,
+    estado estado_pago DEFAULT 'pendiente',
+    metodo_pago metodo_pago,
+    referencia_pago VARCHAR(100),
+    fecha_pago TIMESTAMP,
+    fecha_vencimiento DATE,
+    comprobante_url VARCHAR(500),
+    observaciones TEXT,
+    registrado_por INTEGER,
+    aprobado_por INTEGER,
+    fecha_aprobacion TIMESTAMP,
+    motivo_rechazo TEXT,
+    datos_adicionales JSONB,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_pago_estudiante FOREIGN KEY (estudiante_id) REFERENCES estudiante(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_pago_concepto FOREIGN KEY (concepto_id) REFERENCES concepto_pago(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_pago_registrador FOREIGN KEY (registrado_por) REFERENCES usuario(id) ON DELETE SET NULL,
+    CONSTRAINT fk_pago_aprobador FOREIGN KEY (aprobado_por) REFERENCES usuario(id) ON DELETE SET NULL,
+    CONSTRAINT chk_monto_pago CHECK (monto > 0)
+);
+
+COMMENT ON TABLE pago IS 'Registro de pagos realizados por estudiantes';
+COMMENT ON COLUMN pago.codigo_pago IS 'Codigo unico generado automaticamente (ej: PAG-2024-000001)';
+COMMENT ON COLUMN pago.referencia_pago IS 'Numero de operacion bancaria, voucher, etc.';
+
+CREATE INDEX idx_pago_estudiante ON pago(estudiante_id);
+CREATE INDEX idx_pago_estado ON pago(estado);
+CREATE INDEX idx_pago_fecha ON pago(fecha_pago);
+CREATE INDEX idx_pago_codigo ON pago(codigo_pago);
+CREATE INDEX idx_pago_concepto ON pago(concepto_id);
+
+-- Tabla: Historial de Estados de Pago (auditoria)
+CREATE TABLE historial_pago (
+    id SERIAL PRIMARY KEY,
+    pago_id INTEGER NOT NULL,
+    estado_anterior estado_pago,
+    estado_nuevo estado_pago NOT NULL,
+    cambiado_por INTEGER NOT NULL,
+    motivo TEXT,
+    ip_address VARCHAR(45),
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_historial_pago FOREIGN KEY (pago_id) REFERENCES pago(id) ON DELETE CASCADE,
+    CONSTRAINT fk_historial_usuario FOREIGN KEY (cambiado_por) REFERENCES usuario(id) ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_historial_pago ON historial_pago(pago_id);
+CREATE INDEX idx_historial_fecha ON historial_pago(creado_en);
+
+-- Tabla: Items de Pago (desglose de conceptos en un pago)
+CREATE TABLE pago_detalle (
+    id SERIAL PRIMARY KEY,
+    pago_id INTEGER NOT NULL,
+    concepto_id INTEGER NOT NULL,
+    cantidad INTEGER DEFAULT 1,
+    precio_unitario NUMERIC(10,2) NOT NULL,
+    subtotal NUMERIC(10,2) NOT NULL,
+    descuento NUMERIC(10,2) DEFAULT 0,
+    total NUMERIC(10,2) NOT NULL,
+    CONSTRAINT fk_detalle_pago FOREIGN KEY (pago_id) REFERENCES pago(id) ON DELETE CASCADE,
+    CONSTRAINT fk_detalle_concepto FOREIGN KEY (concepto_id) REFERENCES concepto_pago(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_cantidad CHECK (cantidad > 0),
+    CONSTRAINT chk_precios CHECK (precio_unitario >= 0 AND subtotal >= 0 AND total >= 0)
+);
+
+-- Funcion para generar codigo de pago unico
+CREATE OR REPLACE FUNCTION generar_codigo_pago()
+RETURNS TRIGGER AS $$
+DECLARE
+    anio TEXT;
+    siguiente_numero INTEGER;
+    nuevo_codigo TEXT;
+BEGIN
+    anio := EXTRACT(YEAR FROM CURRENT_DATE)::TEXT;
+    
+    -- Obtener el siguiente numero para este anio
+    SELECT COALESCE(MAX(NULLIF(regexp_replace(codigo_pago, '^PAG-' || anio || '-', ''), '')), '0')::INTEGER + 1
+    INTO siguiente_numero
+    FROM pago
+    WHERE codigo_pago LIKE 'PAG-' || anio || '-%';
+    
+    nuevo_codigo := 'PAG-' || anio || '-' || LPAD(siguiente_numero::TEXT, 6, '0');
+    NEW.codigo_pago := nuevo_codigo;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para auto-generar codigo de pago
+CREATE TRIGGER trigger_generar_codigo_pago
+    BEFORE INSERT ON pago
+    FOR EACH ROW
+    EXECUTE FUNCTION generar_codigo_pago();
+
+-- Funcion para registrar historial de cambios de estado
+CREATE OR REPLACE FUNCTION registrar_historial_pago()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.estado IS DISTINCT FROM NEW.estado THEN
+        INSERT INTO historial_pago (pago_id, estado_anterior, estado_nuevo, cambiado_por, motivo)
+        VALUES (NEW.id, OLD.estado, NEW.estado, NEW.registrado_por, NEW.motivo_rechazo);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para registrar historial automaticamente
+CREATE TRIGGER trigger_historial_pago
+    AFTER UPDATE OF estado ON pago
+    FOR EACH ROW
+    EXECUTE FUNCTION registrar_historial_pago();
+
+-- Insertar conceptos de pago por defecto
+INSERT INTO concepto_pago (codigo, nombre, descripcion, tipo, monto, activo) VALUES
+('MAT-001', 'Matricula Regular', 'Pago de matricula para ciclo regular', 'matricula', 350.00, true),
+('MAT-002', 'Matricula Extraordinaria', 'Pago de matricula extraordinaria', 'matricula', 450.00, true),
+('TRA-001', 'Tramite de Constancia de Estudios', 'Constancia de estudios vigentes', 'constancia', 20.00, true),
+('TRA-002', 'Tramite de Certificado de Alumno Regular', 'Certificado de alumno regular', 'certificado', 25.00, true),
+('TRA-003', 'Tramite de Duplicado de Carnet', 'Duplicado de carnet universitario', 'tramite', 30.00, true),
+('EXT-001', 'Pago por Practicas Pre-profesionales', 'Gestion de practicas pre-profesionales', 'tramite', 50.00, true),
+('EXT-002', 'Pago por Tramite de Tesis', 'Gestion de tramite de tesis', 'tramite', 150.00, true),
+('OTR-001', 'Otros Conceptos', 'Otros conceptos de pago', 'otro', 0.00, true);
+
+-- Insertar rol de Secretaria si no existe
+INSERT INTO rol (nombre, descripcion, activo) 
+VALUES ('Secretaria', 'Gestiona pagos y tramites administrativos', true)
+ON CONFLICT (nombre) DO NOTHING;
 
 -- =====================================================
 -- MENSAJE DE CONFIRMACIÓN

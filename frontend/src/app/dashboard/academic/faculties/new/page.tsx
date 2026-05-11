@@ -6,10 +6,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      message = errorData.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
 
 export default function NewFacultyPage() {
   const router = useRouter();
@@ -21,11 +45,9 @@ export default function NewFacultyPage() {
   });
   const [loading, setLoading] = useState(false);
 
-  const createMutation = trpc.academic.faculties.create.useMutation();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.nombre.trim() || !formData.codigo.trim()) {
       toast({
         title: 'Error de validación',
@@ -37,24 +59,26 @@ export default function NewFacultyPage() {
 
     setLoading(true);
     try {
-      await createMutation.mutateAsync({
-        nombre: formData.nombre,
-        codigo: formData.codigo,
-        descripcion: formData.descripcion || undefined,
-        activo: true,
+      await fetchWithAuth('/api/academic/faculties', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: formData.nombre,
+          codigo: formData.codigo,
+          descripcion: formData.descripcion || undefined,
+          activo: true,
+        }),
       });
 
       toast({
         title: 'Éxito',
         description: 'Facultad creada correctamente',
-        duration: 3000,
       });
 
       router.push('/dashboard/academic/faculties');
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo crear la facultad',
+        description: error instanceof Error ? error.message : 'No se pudo crear la facultad',
         variant: 'destructive',
       });
     } finally {

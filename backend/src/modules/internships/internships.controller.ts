@@ -76,7 +76,7 @@ export class InternshipsController {
 
   // Ofertas
   @Get('offers')
-  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ESTUDIANTE, RolUsuario.REPRESENTANTE_EMPRESA)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR, RolUsuario.ESTUDIANTE, RolUsuario.REPRESENTANTE_EMPRESA, RolUsuario.SECRETARIA)
   async findAllOffers(
     @CurrentUser() user: any,
     @Query('estado') estado?: string,

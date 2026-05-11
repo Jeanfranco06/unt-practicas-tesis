@@ -1,26 +1,75 @@
 'use client';
 
-import { trpc } from '@/lib/trpc/react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoursTrackingForm } from '@/components/forms/HoursTrackingForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      message = errorData.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+interface Internship {
+  id: number;
+  empresa?: { razonSocial: string };
+  asesorAcademico?: { nombre: string };
+  horasCompletadas: number;
+  horasTotalesRequeridas: number;
+}
 
 export default function MyInternshipPage() {
   const { role, isLoading: authLoading } = useAuth();
   const router = useRouter();
-
-  // Only students should access this page
-  const { data: internship, isLoading: internshipLoading } = trpc.internships.getMyInternship.useQuery(undefined, {
-    enabled: role === 'Estudiante',
-  });
+  const [internship, setInternship] = useState<Internship | null>(null);
+  const [internshipLoading, setInternshipLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && role && role !== 'Estudiante') {
       router.push('/dashboard');
     }
   }, [role, authLoading, router]);
+
+  useEffect(() => {
+    const loadInternship = async () => {
+      if (role !== 'Estudiante') return;
+      try {
+        setInternshipLoading(true);
+        const data = await fetchWithAuth('/api/internships/my-internship');
+        setInternship(data);
+      } catch (err) {
+        // Silenciar error si no tiene práctica
+        setInternship(null);
+      } finally {
+        setInternshipLoading(false);
+      }
+    };
+
+    if (role === 'Estudiante') {
+      loadInternship();
+    }
+  }, [role]);
 
   if (authLoading || internshipLoading) {
     return <div className="text-muted-foreground">Cargando...</div>;

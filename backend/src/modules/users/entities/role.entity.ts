@@ -7,6 +7,7 @@ export enum RoleName {
   ASESOR = 'Asesor',
   ESTUDIANTE = 'Estudiante',
   REPRESENTANTE_EMPRESA = 'RepresentanteEmpresa',
+  SECRETARIA = 'Secretaria',
 }
 
 @Entity('rol')

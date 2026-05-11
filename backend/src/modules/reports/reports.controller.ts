@@ -196,10 +196,19 @@ export class ReportsController {
   @Get('pdf/seguimiento-tesis')
   @Roles(RolUsuario.ADMIN, RolUsuario.COORDINADOR)
   async getSeguimientoTesisPDF(@Query() filters: ReportFilters, @Res() res: Response) {
-    const pdf = await this.reportsService.generateReportPDF('seguimiento-tesis', filters);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=reporte_seguimiento_tesis.pdf');
-    res.send(pdf);
+    try {
+      const pdf = await this.reportsService.generateReportPDF('seguimiento-tesis', filters);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_seguimiento_tesis.pdf');
+      res.send(pdf);
+    } catch (error: any) {
+      console.error('Error generando PDF de seguimiento-tesis:', error);
+      res.status(500).json({ 
+        error: 'Error generando PDF',
+        message: error.message,
+        details: error.stack
+      });
+    }
   }
 
   @Get('pdf/evaluaciones')
@@ -391,7 +400,7 @@ export class ReportsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_practicas_facultad.pdf');
       res.send(pdf);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating faculty internships PDF:', error);
       res.status(500).json({ message: 'Error al generar PDF de prácticas' });
     }
@@ -413,7 +422,7 @@ export class ReportsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_tesis_facultad.pdf');
       res.send(pdf);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating faculty thesis PDF:', error);
       res.status(500).json({ message: 'Error al generar PDF de tesis' });
     }
@@ -435,7 +444,7 @@ export class ReportsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_estudiantes_facultad.pdf');
       res.send(pdf);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating faculty students PDF:', error);
       res.status(500).json({ message: 'Error al generar PDF de estudiantes' });
     }
@@ -457,7 +466,7 @@ export class ReportsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_asesores_facultad.pdf');
       res.send(pdf);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating faculty advisors PDF:', error);
       res.status(500).json({ message: 'Error al generar PDF de asesores' });
     }
@@ -479,7 +488,7 @@ export class ReportsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_convenios_facultad.pdf');
       res.send(pdf);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating faculty agreements PDF:', error);
       res.status(500).json({ message: 'Error al generar PDF de convenios' });
     }
@@ -501,7 +510,7 @@ export class ReportsController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_estadisticas_facultad.pdf');
       res.send(pdf);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating faculty stats PDF:', error);
       res.status(500).json({ message: 'Error al generar PDF de estadísticas' });
     }

@@ -14,6 +14,7 @@ import { HealthModule } from './common/health/health.module';
 import { AcademicModule } from './modules/academic/academic.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     ReportsModule,
     DashboardModule,
     AcademicModule,
+    PaymentsModule,
     TrpcModule,
     HealthModule,
   ],

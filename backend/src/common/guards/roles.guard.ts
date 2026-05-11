@@ -10,6 +10,7 @@ const roleNameToRolUsuario: Record<RoleName, RolUsuario> = {
   [RoleName.ASESOR]: RolUsuario.ASESOR,
   [RoleName.ESTUDIANTE]: RolUsuario.ESTUDIANTE,
   [RoleName.REPRESENTANTE_EMPRESA]: RolUsuario.REPRESENTANTE_EMPRESA,
+  [RoleName.SECRETARIA]: RolUsuario.SECRETARIA,
 };
 
 const rolUsuarioToRoleName: Record<RolUsuario, RoleName> = {
@@ -18,6 +19,7 @@ const rolUsuarioToRoleName: Record<RolUsuario, RoleName> = {
   [RolUsuario.ASESOR]: RoleName.ASESOR,
   [RolUsuario.ESTUDIANTE]: RoleName.ESTUDIANTE,
   [RolUsuario.REPRESENTANTE_EMPRESA]: RoleName.REPRESENTANTE_EMPRESA,
+  [RolUsuario.SECRETARIA]: RoleName.SECRETARIA,
 };
 
 @Injectable()

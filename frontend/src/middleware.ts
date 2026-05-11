@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-type UserRole = 'Administrador' | 'Coordinador' | 'Asesor' | 'Estudiante' | 'RepresentanteEmpresa';
+type UserRole = 'Administrador' | 'Coordinador' | 'Asesor' | 'Estudiante' | 'RepresentanteEmpresa' | 'Secretaria';
 
 interface JWTPayload {
   sub: number;
@@ -43,6 +43,10 @@ function getDashboardRouteByRoles(roles: UserRole[] | null): string {
 
   if (roles.includes('Asesor')) {
     return '/dashboard/advisor';
+  }
+
+  if (roles.includes('Secretaria')) {
+    return '/dashboard/secretary';
   }
 
   if (roles.includes('RepresentanteEmpresa')) {
@@ -107,8 +111,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard/advisor', request.url));
   }
 
+  // Redirect secretaries accessing general dashboard to secretary dashboard
+  if (pathname === '/dashboard' && token && hasRole(userRoles, 'Secretaria') && !hasRole(userRoles, 'Administrador') && !hasRole(userRoles, 'Coordinador') && !hasRole(userRoles, 'Asesor')) {
+    return NextResponse.redirect(new URL('/dashboard/secretary', request.url));
+  }
+
   // Redirect company representatives accessing general dashboard to company dashboard
-  if (pathname === '/dashboard' && token && hasRole(userRoles, 'RepresentanteEmpresa') && !hasRole(userRoles, 'Administrador') && !hasRole(userRoles, 'Coordinador') && !hasRole(userRoles, 'Asesor')) {
+  if (pathname === '/dashboard' && token && hasRole(userRoles, 'RepresentanteEmpresa') && !hasRole(userRoles, 'Administrador') && !hasRole(userRoles, 'Coordinador') && !hasRole(userRoles, 'Asesor') && !hasRole(userRoles, 'Secretaria')) {
     return NextResponse.redirect(new URL('/dashboard/company', request.url));
   }
 

@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Plus, Search, Edit, Trash2, Eye, MoreHorizontal, AlertCircle, X, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { trpc } from '@/lib/trpc';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,31 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Error ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      message = errorData.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
 
 interface Career {
   id: number;
@@ -52,24 +76,42 @@ export default function CareersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCareer, setSelectedCareer] = useState<Career | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-  const careersQuery = trpc.academic.careers.list.useQuery();
-  const facultiesQuery = trpc.academic.faculties.list.useQuery();
-  const deactivateMutation = trpc.academic.careers.deactivate.useMutation();
+  const [deactivating, setDeactivating] = useState(false);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (careersQuery.data && facultiesQuery.data) {
-      setCareers(careersQuery.data as Career[]);
-      setFilteredCareers(careersQuery.data as Career[]);
-      
-      const facultyMap = new Map<number, Faculty>();
-      (facultiesQuery.data as Faculty[]).forEach(f => {
-        facultyMap.set(f.id, f);
-      });
-      setFaculties(facultyMap);
-      setLoading(false);
-    }
-  }, [careersQuery.data, facultiesQuery.data]);
+    if (loadedRef.current) return; // Evitar múltiples ejecuciones
+    loadedRef.current = true;
+
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [careersData, facultiesData] = await Promise.all([
+          fetchWithAuth('/api/academic/careers'),
+          fetchWithAuth('/api/academic/faculties'),
+        ]);
+        setCareers(careersData);
+        setFilteredCareers(careersData);
+
+        const facultyMap = new Map<number, Faculty>();
+        facultiesData.forEach((f: Faculty) => {
+          facultyMap.set(f.id, f);
+        });
+        setFaculties(facultyMap);
+      } catch (err) {
+        console.error('Error loading data:', err);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar los datos',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase();
@@ -89,12 +131,14 @@ export default function CareersPage() {
 
   const handleDeleteConfirm = async () => {
     if (!selectedCareer) return;
+    setDeactivating(true);
     try {
-      await deactivateMutation.mutateAsync({ id: selectedCareer.id });
+      await fetchWithAuth(`/api/academic/careers/${selectedCareer.id}/deactivate`, {
+        method: 'PATCH',
+      });
       toast({
         title: 'Éxito',
         description: 'Carrera desactivada correctamente',
-        duration: 3000,
       });
       setCareers(careers.filter(c => c.id !== selectedCareer.id));
       setFilteredCareers(filteredCareers.filter(c => c.id !== selectedCareer.id));
@@ -103,9 +147,11 @@ export default function CareersPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo desactivar la carrera',
+        description: error instanceof Error ? error.message : 'No se pudo desactivar la carrera',
         variant: 'destructive',
       });
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -240,9 +286,9 @@ export default function CareersPage() {
               <Button
                 variant="destructive"
                 onClick={handleDeleteConfirm}
-                disabled={deactivateMutation.isPending}
+                disabled={deactivating}
               >
-                {deactivateMutation.isPending ? 'Desactivando...' : 'Desactivar'}
+                {deactivating ? 'Desactivando...' : 'Desactivar'}
               </Button>
             </div>
           </div>

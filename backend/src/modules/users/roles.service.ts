@@ -43,6 +43,7 @@ export class RolesService {
       { nombre: RoleName.ASESOR, descripcion: 'Docente que asesora prácticas y tesis' },
       { nombre: RoleName.ESTUDIANTE, descripcion: 'Usuario que realiza prácticas y desarrolla tesis' },
       { nombre: RoleName.REPRESENTANTE_EMPRESA, descripcion: 'Representante de empresas colaboradoras' },
+      { nombre: RoleName.SECRETARIA, descripcion: 'Gestiona pagos y tramites administrativos' },
     ];
 
     for (const roleData of defaultRoles) {
