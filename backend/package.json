@@ -43,12 +43,12 @@
         "@types/multer": "^2.1.0",
         "@types/node": "^20.8.10",
         "@types/passport-jwt": "^4.0.0",
-        "typescript": "^5.2.2"
+        "typescript": "^5.2.2",
+        "@playwright/test": "^1.44.0"
     },
     "devDependencies": {
         "@nestjs/schematics": "^10.0.0",
         "@nestjs/testing": "^10.0.0",
-        "@playwright/test": "^1.44.0",
         "@types/jest": "^29.5.4",
         "@types/puppeteer": "^7.0.4",
         "identity-obj-proxy": "^3.0.0",
