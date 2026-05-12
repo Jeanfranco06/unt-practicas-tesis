@@ -23,16 +23,15 @@ import { PaymentsModule } from './modules/payments/payments.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: config.get('DB_HOST'),
-        port: config.get('DB_PORT'),
-        username: config.get('DB_USER'),
-        password: config.get('DB_PASSWORD'),
-        database: config.get('DB_NAME'),
+        url: config.get('DATABASE_URL'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false, // desactivado: usa esquema SQL de inicialización
         logging: true,
         extra: {
           client_encoding: 'UTF8',
+          ssl: {
+            rejectUnauthorized: false,
+          },
         },
       }),
     }),
