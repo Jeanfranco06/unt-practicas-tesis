@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias para construcción
-RUN npm ci
+RUN npm install
 
 # Copiar código fuente
 COPY . .
@@ -37,7 +37,7 @@ RUN adduser -S nodejs -u 1001
 COPY package*.json ./
 
 # Instalar dependencias de producción
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copiar código construido
 COPY --from=builder /app/dist ./dist

@@ -1,4 +1,10 @@
-# Etapa de construcción
+# ============================================================
+# Dockerfile.frontend
+# Contexto de build: raiz del proyecto
+# Uso: docker build -f docker/Dockerfile.frontend -t unt-frontend .
+# ============================================================
+
+# ------- Etapa 1: Build -------
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -9,31 +15,32 @@ COPY frontend/package*.json ./
 # Instalar dependencias del frontend
 RUN npm install
 
-# Copiar código fuente del frontend
+# Copiar el codigo fuente del frontend
 COPY frontend/. .
 
-# Copiar el archivo de tipos de tRPC y las dependencias necesarias
+# Copiar tipos de tRPC desde el backend (necesarios para la compilacion)
 COPY backend/src/app.router.ts ../backend/src/app.router.ts
 COPY backend/package*.json ../backend/
 
 # Instalar solo las dependencias de tipo del backend (sin scripts post-install)
-RUN cd ../backend && npm install --ignore-scripts --omit=optional 2>/dev/null || npm install --ignore-scripts @trpc/server@^10.45.0 zod@^3.22.0
+RUN cd ../backend && npm install --ignore-scripts --omit=optional 2>/dev/null || \
+    npm install --ignore-scripts @trpc/server@^10.45.0 zod@^3.22.0
 
-# Build-time env vars (NEXT_PUBLIC_* must be baked at build time)
+# Variables de entorno de build (NEXT_PUBLIC_* deben estar presentes al compilar)
 ARG NEXT_PUBLIC_API_URL=http://localhost:3000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Construir la aplicación
+# Compilar la aplicacion Next.js
 RUN npm run build
 
-# Etapa de producción
+# ------- Etapa 2: Produccion -------
 FROM node:18-alpine AS production
 
 WORKDIR /app
 
 # Crear usuario no root
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
 # Copiar el servidor standalone generado por Next.js
 COPY --from=builder --chown=nodejs:nodejs /app/.next/standalone ./
@@ -41,14 +48,13 @@ COPY --from=builder --chown=nodejs:nodejs /app/.next/static ./.next/static
 RUN mkdir -p ./public
 COPY --from=builder --chown=nodejs:nodejs /app/public ./public
 
-# Cambiar al usuario no root
+# Cambiar a usuario no root
 USER nodejs
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
-# Exponer puerto
 EXPOSE 3000
 
-# Comando de inicio (standalone no necesita npm)
 CMD ["node", "server.js"]

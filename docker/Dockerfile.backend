@@ -1,0 +1,64 @@
+# ============================================================
+# Dockerfile.backend
+# Contexto de build: raiz del proyecto
+# Uso: docker build -f docker/Dockerfile.backend -t unt-backend .
+# ============================================================
+
+# ------- Etapa 1: Build -------
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copiar solo los package files primero (cache de capas)
+COPY backend/package*.json ./
+
+# Instalar todas las dependencias (incluye devDeps para compilar TS)
+RUN npm install
+
+# Copiar el codigo fuente del backend
+COPY backend/. .
+
+# Compilar TypeScript -> dist/
+RUN npm run build
+
+# ------- Etapa 2: Produccion -------
+FROM node:18-alpine AS production
+
+WORKDIR /app
+
+# Instalar Chromium y fuentes para Puppeteer
+RUN apk add --no-cache \
+    chromium \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-dejavu \
+    ttf-liberation
+
+# Crear usuario no root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copiar package files e instalar solo dependencias de produccion
+COPY backend/package*.json ./
+RUN npm install --omit=dev && npm cache clean --force
+
+# Copiar el build generado en la etapa anterior
+COPY --from=builder /app/dist ./dist
+
+# Crear directorios de uploads con permisos correctos
+RUN mkdir -p /app/upload/convenios /app/upload/cv && \
+    chown -R nodejs:nodejs /app/upload && \
+    chmod -R 755 /app/upload
+
+# Cambiar a usuario no root
+USER nodejs
+
+# Variables de entorno para Puppeteer (usa Chromium del sistema, no descarga)
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV NODE_ENV=production
+
+EXPOSE 3000
+
+CMD ["node", "dist/src/main.js"]

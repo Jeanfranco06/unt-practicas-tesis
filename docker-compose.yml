@@ -26,6 +26,7 @@
       dockerfile: Dockerfile
     environment:
       PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/unt_practicas_tesis
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres

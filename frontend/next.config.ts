@@ -1,7 +1,8 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  distDir: '.next',
+  output: "standalone",
+  distDir: ".next",
   outputFileTracingRoot: __dirname,
   typescript: {
     // Ignorar errores de tipo durante el build
